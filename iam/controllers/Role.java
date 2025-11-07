@@ -1,5 +1,5 @@
 package MachinaEar.iam.controllers;
 
-public class Role {
-    
+public enum Role {
+    ADMIN, MAINTAINER, USER
 }
