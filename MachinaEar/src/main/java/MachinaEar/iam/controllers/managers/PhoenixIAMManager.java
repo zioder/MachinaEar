@@ -20,7 +20,7 @@ public class PhoenixIAMManager {
     @Inject GrantRepository grants;
     @Inject JwtManager jwt;
 
-    public TokenPair register(String email, char[] password) {
+    public TokenPair register(String email, String username, char[] password) {
         // Check if email already exists
         if (identities.emailExists(email)) {
             throw new IllegalArgumentException("Email already registered");
@@ -31,6 +31,11 @@ public class PhoenixIAMManager {
             throw new IllegalArgumentException("Invalid email format");
         }
 
+        // Validate username
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("Username is required");
+        }
+
         // Validate password strength (minimum 6 characters)
         if (password == null || password.length < 6) {
             throw new IllegalArgumentException("Password must be at least 6 characters");
@@ -39,6 +44,7 @@ public class PhoenixIAMManager {
         // Create new identity
         Identity user = new Identity();
         user.setEmail(email);
+        user.setUsername(username);
         user.setPasswordHash(Argon2Utility.hash(password));
         user.setActive(true);
 

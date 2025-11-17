@@ -17,6 +17,7 @@ export class AuthService {
       },
       body: JSON.stringify({
         email: credentials.email,
+        username: credentials.username,
         password: credentials.password,
       }),
     });
@@ -122,17 +123,22 @@ export class AuthService {
 
     try {
       const decoded = jwtDecode<DecodedToken>(token);
+      console.log("Decoded token:", decoded);
 
       // Check if token is expired
       if (decoded.exp * 1000 < Date.now()) {
         return null;
       }
 
-      return {
+      const user = {
         email: decoded.sub,
+        username: decoded.username || "",
         roles: decoded.roles || [],
       };
+      console.log("User object created:", user);
+      return user;
     } catch (error) {
+      console.error("Error decoding token:", error);
       return null;
     }
   }

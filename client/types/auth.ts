@@ -5,6 +5,7 @@ export interface LoginCredentials {
 
 export interface RegisterCredentials {
   email: string;
+  username: string;
   password: string;
   confirmPassword?: string;
 }
@@ -20,9 +21,11 @@ export interface DecodedToken {
   iat: number;
   typ?: string;
   roles?: string[];
+  username?: string;
 }
 
 export interface User {
   email: string;
+  username: string;
   roles: string[];
 }

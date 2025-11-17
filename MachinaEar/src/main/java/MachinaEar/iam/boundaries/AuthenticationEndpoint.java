@@ -30,6 +30,7 @@ public class AuthenticationEndpoint {
 
     public static class RegisterRequest {
         public String email;
+        public String username;
         public String password; // transmis via TLS
     }
 
@@ -56,11 +57,11 @@ public class AuthenticationEndpoint {
             content = @Content(schema = @Schema(implementation = RegisterRequest.class))
         ) RegisterRequest req
     ) {
-        if (req == null || req.email == null || req.password == null) {
-            throw new BadRequestException("email/password required");
+        if (req == null || req.email == null || req.username == null || req.password == null) {
+            throw new BadRequestException("email/username/password required");
         }
         try {
-            var pair = manager.register(req.email, req.password.toCharArray());
+            var pair = manager.register(req.email, req.username, req.password.toCharArray());
             return Response.ok(pair).build();
         } catch (IllegalArgumentException e) {
             throw new BadRequestException(e.getMessage());

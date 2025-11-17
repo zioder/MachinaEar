@@ -46,6 +46,7 @@ public class JwtManager {
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plusSeconds(minutes * 60)))
                 .claim("roles", roles.stream().map(Enum::name).toArray(String[]::new))
+                .claim("username", identity.getUsername())
                 .build();
         return sign(claims);
     }
