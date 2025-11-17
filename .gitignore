@@ -1,3 +1,4 @@
+
 # Maven
 target/
 pom.xml.tag
@@ -83,3 +84,5 @@ Thumbs.db
 **/*.deployed
 **/deployments/
 
+deploy.ps1
+start.ps1
