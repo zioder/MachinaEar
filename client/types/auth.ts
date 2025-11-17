@@ -1,6 +1,8 @@
 export interface LoginCredentials {
   email: string;
   password: string;
+  totpCode?: number;
+  recoveryCode?: string;
 }
 
 export interface RegisterCredentials {
@@ -28,4 +30,17 @@ export interface User {
   email: string;
   username: string;
   roles: string[];
+}
+
+export interface LoginResult {
+  tokens: TokenPair | null;
+  twoFactorEnabled: boolean;
+  authenticated: boolean;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  qrCodeUrl: string;
+  qrCodeImage: string;
+  recoveryCodes: string[];
 }

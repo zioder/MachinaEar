@@ -26,6 +26,8 @@ public class AuthenticationEndpoint {
     public static class LoginRequest {
         public String email;
         public String password; // transmis via TLS
+        public Integer totpCode; // 6-digit TOTP code (optional)
+        public String recoveryCode; // Recovery code for 2FA (optional)
     }
 
     public static class RegisterRequest {
@@ -58,13 +60,15 @@ public class AuthenticationEndpoint {
         ) RegisterRequest req
     ) {
         if (req == null || req.email == null || req.username == null || req.password == null) {
-            throw new BadRequestException("email/username/password required");
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("email/username/password required")).build();
         }
         try {
             var pair = manager.register(req.email, req.username, req.password.toCharArray());
             return Response.ok(pair).build();
         } catch (IllegalArgumentException e) {
-            throw new BadRequestException(e.getMessage());
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage())).build();
         }
     }
 
@@ -98,7 +102,19 @@ public class AuthenticationEndpoint {
         if (req == null || req.email == null || req.password == null) {
             throw new BadRequestException("email/password required");
         }
-        var pair = manager.login(req.email, req.password.toCharArray());
-        return Response.ok(pair).build();
+        try {
+            var result = manager.login(req.email, req.password.toCharArray(),
+                req.totpCode, req.recoveryCode);
+            return Response.ok(result).build();
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    // Error response DTO
+    public static class ErrorResponse {
+        public String error;
+        public ErrorResponse(String error) { this.error = error; }
     }
 }

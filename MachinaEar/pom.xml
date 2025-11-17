@@ -43,6 +43,25 @@
       <version>2.11</version>
     </dependency>
 
+    <!-- Google Authenticator (TOTP for 2FA) -->
+    <dependency>
+      <groupId>com.warrenstrange</groupId>
+      <artifactId>googleauth</artifactId>
+      <version>1.5.0</version>
+    </dependency>
+
+    <!-- QR Code Generation -->
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>core</artifactId>
+      <version>3.5.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>javase</artifactId>
+      <version>3.5.3</version>
+    </dependency>
+
     <!-- MicroProfile OpenAPI for Swagger UI -->
     <dependency>
       <groupId>org.eclipse.microprofile.openapi</groupId>

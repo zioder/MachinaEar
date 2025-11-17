@@ -30,9 +30,23 @@ export default function RegisterPage() {
       return;
     }
 
-    // Validate password strength (at least 6 characters)
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    // Validate password strength (at least 12 characters with complexity)
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters long");
+      return;
+    }
+
+    // Check for character variety
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+    const varietyCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+
+    if (varietyCount < 3) {
+      setError(
+        "Password must contain at least 3 of: lowercase letters, uppercase letters, numbers, special characters"
+      );
       return;
     }
 
@@ -91,23 +105,27 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
+              <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                 Password
               </label>
               <input
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="new-password"
+                autoComplete="new-password webauthn"
                 required
+                minLength={12}
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
-                placeholder="Password"
+                placeholder="Enter a strong password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                At least 12 characters with 3 of: uppercase, lowercase, numbers, symbols
+              </p>
             </div>
             <div>
-              <label htmlFor="confirm-password" className="sr-only">
+              <label htmlFor="confirm-password" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                 Confirm Password
               </label>
               <input

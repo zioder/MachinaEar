@@ -1,7 +1,15 @@
 "use client";
 
 import { jwtDecode } from "jwt-decode";
-import type { LoginCredentials, RegisterCredentials, TokenPair, DecodedToken, User } from "@/types/auth";
+import type {
+  LoginCredentials,
+  RegisterCredentials,
+  TokenPair,
+  DecodedToken,
+  User,
+  LoginResult,
+  TwoFactorSetup,
+} from "@/types/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam-0.1.0/iam";
 
@@ -23,7 +31,14 @@ export class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.text();
+      let error = await response.text();
+      // Try to parse JSON error response
+      try {
+        const errorJson = JSON.parse(error);
+        error = errorJson.message || errorJson.error || error;
+      } catch (e) {
+        // If not JSON, use the text as-is
+      }
       throw new Error(error || "Registration failed");
     }
 
@@ -32,7 +47,7 @@ export class AuthService {
     return tokens;
   }
 
-  static async login(credentials: LoginCredentials): Promise<TokenPair> {
+  static async login(credentials: LoginCredentials): Promise<LoginResult> {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: {
@@ -46,9 +61,14 @@ export class AuthService {
       throw new Error(error || "Login failed");
     }
 
-    const tokens: TokenPair = await response.json();
-    this.saveTokens(tokens);
-    return tokens;
+    const result: LoginResult = await response.json();
+
+    // Save tokens if authentication was successful
+    if (result.authenticated && result.tokens) {
+      this.saveTokens(result.tokens);
+    }
+
+    return result;
   }
 
   static async refreshToken(): Promise<TokenPair | null> {
@@ -145,5 +165,84 @@ export class AuthService {
 
   static isAuthenticated(): boolean {
     return this.getCurrentUser() !== null;
+  }
+
+  // 2FA Management Methods
+  static async setup2FA(email: string): Promise<TwoFactorSetup> {
+    const accessToken = this.getAccessToken();
+    const response = await fetch(`${API_URL}/auth/2fa/setup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Failed to setup 2FA");
+    }
+
+    return await response.json();
+  }
+
+  static async enable2FA(
+    email: string,
+    secret: string,
+    verificationCode: number,
+    recoveryCodes: string[]
+  ): Promise<void> {
+    const accessToken = this.getAccessToken();
+    const response = await fetch(`${API_URL}/auth/2fa/enable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email, secret, verificationCode, recoveryCodes }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Failed to enable 2FA");
+    }
+  }
+
+  static async disable2FA(email: string, password: string): Promise<void> {
+    const accessToken = this.getAccessToken();
+    const response = await fetch(`${API_URL}/auth/2fa/disable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Failed to disable 2FA");
+    }
+  }
+
+  static async regenerateRecoveryCodes(email: string, password: string): Promise<string[]> {
+    const accessToken = this.getAccessToken();
+    const response = await fetch(`${API_URL}/auth/2fa/regenerate-codes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Failed to regenerate recovery codes");
+    }
+
+    const result = await response.json();
+    return result.recoveryCodes;
   }
 }

@@ -1,6 +1,8 @@
 package MachinaEar.iam.entities;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bson.codecs.pojo.annotations.BsonIgnore;
@@ -14,6 +16,11 @@ public class Identity extends RootEntity {
     private String passwordHash;
     private boolean active = true;
     private Set<Role> roles = new LinkedHashSet<>();
+
+    // 2FA fields
+    private boolean twoFactorEnabled = false;
+    private String twoFactorSecret;  // Base32 encoded secret for TOTP
+    private List<String> recoveryCodes = new ArrayList<>(); // Hashed recovery codes
 
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
@@ -35,4 +42,14 @@ public class Identity extends RootEntity {
 
     @BsonIgnore
     public boolean hasRole(Role r) { return roles != null && roles.contains(r); }
+
+    // 2FA getters and setters
+    public boolean isTwoFactorEnabled() { return twoFactorEnabled; }
+    public void setTwoFactorEnabled(boolean twoFactorEnabled) { this.twoFactorEnabled = twoFactorEnabled; }
+
+    public String getTwoFactorSecret() { return twoFactorSecret; }
+    public void setTwoFactorSecret(String twoFactorSecret) { this.twoFactorSecret = twoFactorSecret; }
+
+    public List<String> getRecoveryCodes() { return recoveryCodes; }
+    public void setRecoveryCodes(List<String> recoveryCodes) { this.recoveryCodes = recoveryCodes; }
 }

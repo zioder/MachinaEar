@@ -7,6 +7,10 @@ import { AuthService } from "@/lib/auth";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -24,7 +28,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await AuthService.login({ email, password });
+      const result = await AuthService.login({
+        email,
+        password,
+        totpCode: totpCode ? parseInt(totpCode) : undefined,
+        recoveryCode: recoveryCode || undefined,
+      });
+
+      // Check if 2FA is required
+      if (result.twoFactorEnabled && !result.authenticated) {
+        setRequires2FA(true);
+        setError("Two-factor authentication required");
+        setLoading(false);
+        return;
+      }
+
+      // Login successful
       router.push("/home");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -42,7 +61,7 @@ export default function LoginPage() {
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email-address" className="sr-only">
                 Email address
@@ -51,9 +70,10 @@ export default function LoginPage() {
                 id="email-address"
                 name="email"
                 type="email"
-                autoComplete="email"
+                autoComplete="email webauthn"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
+                disabled={requires2FA}
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800 disabled:opacity-50"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -67,14 +87,75 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="current-password webauthn"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
+                disabled={requires2FA}
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800 disabled:opacity-50"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+
+            {requires2FA && (
+              <>
+                {!useRecoveryCode ? (
+                  <div>
+                    <label htmlFor="totp-code" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                      Two-Factor Authentication Code
+                    </label>
+                    <input
+                      id="totp-code"
+                      name="totp-code"
+                      type="text"
+                      autoComplete="one-time-code"
+                      required
+                      maxLength={6}
+                      pattern="[0-9]{6}"
+                      className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800"
+                      placeholder="Enter 6-digit code"
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setUseRecoveryCode(true)}
+                      className="mt-2 text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      Use recovery code instead
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label htmlFor="recovery-code" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                      Recovery Code
+                    </label>
+                    <input
+                      id="recovery-code"
+                      name="recovery-code"
+                      type="text"
+                      autoComplete="off"
+                      required
+                      maxLength={10}
+                      className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-800 font-mono"
+                      placeholder="Enter recovery code"
+                      value={recoveryCode}
+                      onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseRecoveryCode(false);
+                        setRecoveryCode("");
+                      }}
+                      className="mt-2 text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      Use authenticator code instead
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {error && (
