@@ -1,45 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthService } from "@/lib/auth";
-import type { User } from "@/types/auth";
+import { useAuth } from "@/hooks";
+import { LoadingSpinner, Button, Card, CardBody } from "@/components/ui";
 
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, logout, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const currentUser = AuthService.getCurrentUser();
-    console.log("Current user:", currentUser);
-
-    if (!currentUser) {
-      // Try to refresh token if not authenticated
-      AuthService.refreshToken().then((tokens) => {
-        if (tokens) {
-          const refreshedUser = AuthService.getCurrentUser();
-          console.log("Refreshed user:", refreshedUser);
-          setUser(refreshedUser);
-        } else {
-          router.push("/");
-        }
-      });
-    } else {
-      setUser(currentUser);
+    if (!loading && !user) {
+      router.push("/");
     }
-  }, [router]);
+  }, [user, loading, router]);
 
   const handleLogout = () => {
-    AuthService.logout();
-    router.push("/");
+    logout();
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-900 dark:text-white">Loading...</div>
-      </div>
-    );
+  if (loading || !user) {
+    return <LoadingSpinner fullScreen message="Loading..." />;
   }
 
   return (
@@ -78,12 +59,9 @@ export default function HomePage() {
                   />
                 </svg>
               </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
+              <Button onClick={handleLogout}>
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -91,14 +69,16 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Hi {user.username}
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Welcome Back!
-            </p>
-          </div>
+          <Card>
+            <CardBody className="p-6">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                Hi {user.username}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Welcome Back!
+              </p>
+            </CardBody>
+          </Card>
         </div>
       </main>
     </div>

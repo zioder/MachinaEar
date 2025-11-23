@@ -1,2 +1,5 @@
 deploy.ps1
 start.ps1
+.env.example
+docs/DEPLOYMENT_SECURITY.md
+docs/SECURITY.md

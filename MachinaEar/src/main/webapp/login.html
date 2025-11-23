@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - MachinaEar</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .error {
+            background-color: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .info {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+            padding: 0;
+            margin-top: 10px;
+        }
+
+        .link-button:hover {
+            color: #764ba2;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #twoFactorSection {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sign In</h1>
+        <p class="subtitle">Enter your credentials to continue</p>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="info" class="info" style="display: none;"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+
+            <div id="twoFactorSection">
+                <div class="form-group">
+                    <label for="totpCode">Two-Factor Code</label>
+                    <input type="text" id="totpCode" name="totpCode" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit code">
+                </div>
+
+                <div class="form-group">
+                    <label for="recoveryCode">Or use Recovery Code</label>
+                    <input type="text" id="recoveryCode" name="recoveryCode" placeholder="Recovery code" style="font-family: monospace;">
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="submitBtn">
+                Sign In
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/iam-0.1.0/iam';
+        const form = document.getElementById('loginForm');
+        const errorDiv = document.getElementById('error');
+        const infoDiv = document.getElementById('info');
+        const submitBtn = document.getElementById('submitBtn');
+        const twoFactorSection = document.getElementById('twoFactorSection');
+        let requires2FA = false;
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            infoDiv.style.display = 'none';
+        }
+
+        function showInfo(message) {
+            infoDiv.textContent = message;
+            infoDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+        }
+
+        function hideMessages() {
+            errorDiv.style.display = 'none';
+            infoDiv.style.display = 'none';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const totpCode = document.getElementById('totpCode').value;
+            const recoveryCode = document.getElementById('recoveryCode').value;
+
+            // Build request body
+            const body = {
+                email,
+                password
+            };
+
+            if (totpCode) {
+                body.totpCode = parseInt(totpCode);
+            }
+            if (recoveryCode) {
+                body.recoveryCode = recoveryCode;
+            }
+
+            // Disable form
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span>Signing in...';
+
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // Important for session cookies
+                    body: JSON.stringify(body),
+                    redirect: 'manual' // Don't auto-follow redirects
+                });
+
+                // Check if backend sent a redirect (OAuth flow continuation)
+                if (response.type === 'opaqueredirect' || response.status === 302 || response.status === 303) {
+                    // For manual redirect, we need to get the Location header
+                    const location = response.headers.get('Location');
+                    if (location) {
+                        window.location.href = location;
+                    } else {
+                        // If we can't get location, reload to trigger OAuth flow
+                        window.location.reload();
+                    }
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Login failed');
+                }
+
+                // Check if 2FA is required
+                if (result.twoFactorEnabled && !result.authenticated) {
+                    requires2FA = true;
+                    twoFactorSection.style.display = 'block';
+                    showInfo('Two-factor authentication required. Please enter your code.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In';
+                    document.getElementById('email').disabled = true;
+                    document.getElementById('password').disabled = true;
+                    document.getElementById('totpCode').focus();
+                    return;
+                }
+
+                // Login successful - backend should have redirected, but just in case
+                showInfo('Login successful! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = '/home';
+                }, 1000);
+
+            } catch (err) {
+                showError(err.message || 'Login failed');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign In';
+            }
+        });
+    </script>
+</body>
+</html>

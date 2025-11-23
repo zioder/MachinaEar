@@ -15,6 +15,7 @@ public class Identity extends RootEntity {
     private String username;
     private String passwordHash;
     private boolean active = true;
+    private boolean emailVerified = false; // Email verification status
     private Set<Role> roles = new LinkedHashSet<>();
 
     // 2FA fields
@@ -36,6 +37,9 @@ public class Identity extends RootEntity {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    public boolean isEmailVerified() { return emailVerified; }
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
 
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles; }

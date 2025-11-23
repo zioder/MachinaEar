@@ -5,6 +5,8 @@ import java.util.Optional;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import org.bson.types.ObjectId;
+
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -31,6 +33,20 @@ public class IdentityRepository {
     public Optional<Identity> findByEmail(String email) {
         Identity i = col.find(eq("email", email)).first();
         return Optional.ofNullable(i);
+    }
+
+    public Optional<Identity> findById(ObjectId id) {
+        Identity i = col.find(eq("_id", id)).first();
+        return Optional.ofNullable(i);
+    }
+
+    public Optional<Identity> findById(String idHex) {
+        try {
+            ObjectId id = new ObjectId(idHex);
+            return findById(id);
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     public Identity create(Identity i) { col.insertOne(i); return i; }

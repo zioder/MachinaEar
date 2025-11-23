@@ -108,6 +108,14 @@
           <useModulePath>false</useModulePath>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.wildfly.plugins</groupId>
+        <artifactId>wildfly-maven-plugin</artifactId>
+        <version>5.0.1.Final</version>
+        <configuration>
+          <version>37.0.1.Final</version>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>
