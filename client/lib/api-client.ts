@@ -3,7 +3,6 @@
  */
 
 import { parseApiError, NetworkError } from './errors';
-import type { ApiError, ApiSuccess } from '@/types/api';
 
 export interface RequestConfig extends RequestInit {
   timeout?: number;
@@ -145,6 +144,40 @@ export class ApiClient {
         ...config?.headers,
       },
       body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  // Device Management
+  async getDevices(): Promise<any[]> {
+    return this.get('/devices');
+  }
+
+  async addDevice(name: string, type: string): Promise<any> {
+    return this.post('/devices', { name, type });
+  }
+
+  async updateDevice(id: string, name: string, type: string): Promise<any> {
+    return this.put(`/devices/${id}`, { name, type });
+  }
+
+  async deleteDevice(id: string): Promise<void> {
+    return this.delete(`/devices/${id}`);
+  }
+
+  async updateDeviceStatus(
+    id: string,
+    status?: 'normal' | 'abnormal' | 'offline',
+    temperature?: number,
+    cpuUsage?: number,
+    memoryUsage?: number,
+    lastError?: string
+  ): Promise<any> {
+    return this.patch(`/devices/${id}/status`, {
+      status,
+      temperature,
+      cpuUsage,
+      memoryUsage,
+      lastError,
     });
   }
 }

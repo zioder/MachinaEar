@@ -1,19 +1,4 @@
-/**
- * API response types for type safety
- */
 
-// Generic API error response
-export interface ApiError {
-  error: string;
-  message?: string;
-  statusCode?: number;
-}
-
-// Generic API success response
-export interface ApiSuccess<T = any> {
-  data: T;
-  message?: string;
-}
 
 // OAuth token response
 export interface TokenResponse {
@@ -28,4 +13,17 @@ export interface OAuthError {
   error: string;
   error_description?: string;
   error_uri?: string;
+}
+
+// Device entity
+export interface Device {
+  id?: string;
+  name: string;
+  type: string;
+  status?: 'normal' | 'abnormal' | 'offline';
+  lastHeartbeat?: string; // ISO timestamp
+  temperature?: number;
+  cpuUsage?: number;
+  memoryUsage?: number;
+  lastError?: string;
 }
