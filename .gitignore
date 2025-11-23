@@ -3,3 +3,24 @@ start.ps1
 .env.example
 docs/DEPLOYMENT_SECURITY.md
 docs/SECURITY.md
+
+# Java / Maven build outputs
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Server logs / temp
+**/log/
+**/tmp/
+
+# IDE / workspace files
+.idea/
+*.iml
+
+# build / packaging
+/dist/
+/*.zip
+/*.tar.gz
