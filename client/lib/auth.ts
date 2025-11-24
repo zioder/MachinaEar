@@ -1,28 +1,28 @@
 "use client";
 
-import { jwtDecode } from "jwt-decode";
 import type {
   LoginCredentials,
   RegisterCredentials,
   TokenPair,
-  DecodedToken,
   User,
   LoginResult,
   TwoFactorSetup,
 } from "@/types/auth";
+import { API_ENDPOINTS } from "@/lib/constants";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam-0.1.0/iam";
-
+/**
+ * AuthService handles authentication with httpOnly cookies
+ * Tokens are automatically sent with requests via cookies
+ * No manual token management needed - more secure against XSS
+ */
 export class AuthService {
-  private static ACCESS_TOKEN_KEY = "access_token";
-  private static REFRESH_TOKEN_KEY = "refresh_token";
-
   static async register(credentials: RegisterCredentials): Promise<TokenPair> {
-    const response = await fetch(`${API_URL}/auth/register`, {
+    const response = await fetch(API_ENDPOINTS.REGISTER, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include", // Important: include cookies
       body: JSON.stringify({
         email: credentials.email,
         username: credentials.username,
@@ -37,22 +37,23 @@ export class AuthService {
         const errorJson = JSON.parse(error);
         error = errorJson.message || errorJson.error || error;
       } catch (e) {
-        // If not JSON, use the text as-is
+      // If not JSON, use the text as-is
       }
       throw new Error(error || "Registration failed");
     }
 
     const tokens: TokenPair = await response.json();
-    this.saveTokens(tokens);
+    // Tokens are now in httpOnly cookies - no need to store in localStorage
     return tokens;
   }
 
   static async login(credentials: LoginCredentials): Promise<LoginResult> {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetch(API_ENDPOINTS.LOGIN, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include", // Important: include cookies
       body: JSON.stringify(credentials),
     });
 
@@ -62,120 +63,88 @@ export class AuthService {
     }
 
     const result: LoginResult = await response.json();
-
-    // Save tokens if authentication was successful
-    if (result.authenticated && result.tokens) {
-      this.saveTokens(result.tokens);
-    }
-
+    // Tokens are now in httpOnly cookies - backend sets them automatically
     return result;
   }
 
-  static async refreshToken(): Promise<TokenPair | null> {
-    const refreshToken = this.getRefreshToken();
-    if (!refreshToken) {
-      return null;
-    }
-
+  static async refreshToken(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/auth/token`, {
+      const response = await fetch(API_ENDPOINTS.REFRESH, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: refreshToken,
         }),
+        credentials: "include", // Refresh token sent automatically via cookie
       });
 
       if (!response.ok) {
-        this.clearTokens();
-        return null;
+        return false;
       }
 
-      const tokens: TokenPair = await response.json();
-      this.saveTokens(tokens);
-      return tokens;
+      // Tokens are refreshed in cookies automatically
+      return true;
     } catch (error) {
-      this.clearTokens();
-      return null;
+      return false;
     }
   }
 
-  static logout(): void {
-    this.clearTokens();
-  }
-
-  static saveTokens(tokens: TokenPair): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(this.ACCESS_TOKEN_KEY, tokens.accessToken);
-      localStorage.setItem(this.REFRESH_TOKEN_KEY, tokens.refreshToken);
-    }
-  }
-
-  static getAccessToken(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(this.ACCESS_TOKEN_KEY);
-    }
-    return null;
-  }
-
-  static getRefreshToken(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(this.REFRESH_TOKEN_KEY);
-    }
-    return null;
-  }
-
-  static clearTokens(): void {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-      localStorage.removeItem(this.REFRESH_TOKEN_KEY);
-    }
-  }
-
-  static getCurrentUser(): User | null {
-    const token = this.getAccessToken();
-    if (!token) {
-      return null;
-    }
-
+  static async logout(): Promise<void> {
     try {
-      const decoded = jwtDecode<DecodedToken>(token);
-      console.log("Decoded token:", decoded);
+      // Call backend to clear cookies and session
+      await fetch(API_ENDPOINTS.LOGOUT, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  }
 
-      // Check if token is expired
-      if (decoded.exp * 1000 < Date.now()) {
+  /**
+   * Gets current user by making an API call with the access token from cookie
+   */
+  static async getCurrentUser(): Promise<User | null> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ME, {
+        method: "GET",
+        credentials: "include", // Token sent automatically via cookie
+      });
+
+      if (!response.ok) {
+        // Token might be expired, try to refresh
+        const refreshed = await this.refreshToken();
+        if (refreshed) {
+          // Retry with refreshed token
+          return this.getCurrentUser();
+        }
         return null;
       }
 
-      const user = {
-        email: decoded.sub,
-        username: decoded.username || "",
-        roles: decoded.roles || [],
-      };
-      console.log("User object created:", user);
+      const user: User = await response.json();
       return user;
     } catch (error) {
-      console.error("Error decoding token:", error);
+      console.error("Error getting current user:", error);
       return null;
     }
   }
 
-  static isAuthenticated(): boolean {
-    return this.getCurrentUser() !== null;
+  static async isAuthenticated(): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    return user !== null;
   }
 
   // 2FA Management Methods
+  // All methods now use httpOnly cookies for authentication
   static async setup2FA(email: string): Promise<TwoFactorSetup> {
-    const accessToken = this.getAccessToken();
-    const response = await fetch(`${API_URL}/auth/2fa/setup`, {
+    const response = await fetch(API_ENDPOINTS.SETUP_2FA, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
+      credentials: "include", // Token sent automatically via cookie
       body: JSON.stringify({ email }),
     });
 
@@ -193,13 +162,12 @@ export class AuthService {
     verificationCode: number,
     recoveryCodes: string[]
   ): Promise<void> {
-    const accessToken = this.getAccessToken();
-    const response = await fetch(`${API_URL}/auth/2fa/enable`, {
+    const response = await fetch(API_ENDPOINTS.ENABLE_2FA, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
+      credentials: "include", // Token sent automatically via cookie
       body: JSON.stringify({ email, secret, verificationCode, recoveryCodes }),
     });
 
@@ -210,13 +178,12 @@ export class AuthService {
   }
 
   static async disable2FA(email: string, password: string): Promise<void> {
-    const accessToken = this.getAccessToken();
-    const response = await fetch(`${API_URL}/auth/2fa/disable`, {
+    const response = await fetch(API_ENDPOINTS.DISABLE_2FA, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
+      credentials: "include", // Token sent automatically via cookie
       body: JSON.stringify({ email, password }),
     });
 
@@ -227,13 +194,12 @@ export class AuthService {
   }
 
   static async regenerateRecoveryCodes(email: string, password: string): Promise<string[]> {
-    const accessToken = this.getAccessToken();
-    const response = await fetch(`${API_URL}/auth/2fa/regenerate-codes`, {
+    const response = await fetch(API_ENDPOINTS.REGENERATE_CODES, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
+      credentials: "include", // Token sent automatically via cookie
       body: JSON.stringify({ email, password }),
     });
 

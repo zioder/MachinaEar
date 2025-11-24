@@ -8,6 +8,8 @@ import java.util.Set;
 
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
@@ -26,15 +28,33 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
     @Inject JwtManager jwt;
     @Context ResourceInfo resourceInfo;
+    @Context HttpServletRequest request;
 
     @Override
     public void filter(ContainerRequestContext ctx) throws IOException {
+        String token = null;
+
+        // First, try to get token from Authorization header (for backward compatibility)
         String auth = ctx.getHeaderString(HttpHeaders.AUTHORIZATION);
-        if (auth == null || !auth.startsWith("Bearer ")) {
-            abort(ctx, Response.Status.UNAUTHORIZED, "Missing Bearer token");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            token = auth.substring("Bearer ".length()).trim();
+        }
+
+        // If not in header, try to get from httpOnly cookie
+        if (token == null && request != null && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        // If no token found, abort
+        if (token == null) {
+            abort(ctx, Response.Status.UNAUTHORIZED, "Missing access token");
             return;
         }
-        String token = auth.substring("Bearer ".length()).trim();
 
         try {
             JWTClaimsSet claims = jwt.validate(token);

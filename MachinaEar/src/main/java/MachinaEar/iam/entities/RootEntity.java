@@ -3,8 +3,11 @@ package MachinaEar.iam.entities;
 import java.time.Instant;
 import org.bson.types.ObjectId;
 import org.bson.codecs.pojo.annotations.*;
+import jakarta.json.bind.annotation.JsonbTypeAdapter;
+import MachinaEar.iam.json.ObjectIdAdapter;
 
 public abstract class RootEntity {
+    @JsonbTypeAdapter(ObjectIdAdapter.class)
     @BsonId @BsonProperty("_id")
     private ObjectId id;
 
