@@ -1,0 +1,6 @@
+Metric,Value
+AUC,0.6681542056074766
+pAUC,0.5636989670437776
+Checkpoint,saved_models\checkpoints\model-epoch=00-val_loss=0.0009.ckpt
+Test Directory,data\dcase2025t2\dev_data\raw\CustomMachine\test
+Number of Test Files,1056
