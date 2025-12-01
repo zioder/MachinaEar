@@ -130,7 +130,7 @@ public class AuthorizeEndpoint {
                 }
 
                 // Redirect to Next.js login page with returnTo parameter
-                String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000");
+                String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "https://localhost:3000");
                 String loginUrl = frontendUrl + "/login?returnTo=" + URLEncoder.encode(returnToUrl.toString(), "UTF-8");
 
                 return Response.seeOther(URI.create(loginUrl)).build();

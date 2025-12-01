@@ -21,7 +21,7 @@ public class CorsFilter implements ContainerResponseFilter {
         // Get allowed origins from environment or use defaults
         String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
         if (allowedOrigins == null) {
-            allowedOrigins = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000";
+            allowedOrigins = "https://localhost:3000,https://localhost:3001,https://127.0.0.1:3000";
         }
         
         // Check if origin is allowed

@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob:;
               font-src 'self' data:;
-              connect-src 'self' http://localhost:8080 ws://localhost:3000;
+              connect-src 'self' https://localhost:8443 wss://localhost:3000;
               frame-ancestors 'none';
               base-uri 'self';
               form-action 'self';

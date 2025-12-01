@@ -110,3 +110,65 @@ target/
 /dist/
 /*.zip
 /*.tar.gz
+
+# Python / ML project
+ml/__pycache__/
+ml/**/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+ml/.venv/
+ml/venv/
+ml/env/
+ml/ENV/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# ML specific outputs
+ml/results/*.csv
+ml/models/*.pth
+ml/models/*.h5
+ml/models/*.pkl
+*.npy
+
+# Certificates (security sensitive)
+certs/*.pem
+certs/*.key
+certs/*.crt
+certs/*.csr
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+*.keystore
+
+# Error output files
+nul
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# AWS credentials
+.aws/
+
+# Shell scripts (deployment/setup)
+*.sh
+fix-frontend.sh
+ec2-setup.sh
+
+# PowerShell scripts
+*.ps1
+
+# Markdown documentation (keep only README.md)
+*.md
+!README.md
+!**/README.md

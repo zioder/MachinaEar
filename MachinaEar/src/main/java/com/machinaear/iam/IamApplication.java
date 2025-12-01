@@ -34,7 +34,7 @@ import org.bson.codecs.pojo.PojoCodecProvider;
         )
     ),
     servers = {
-        @Server(url = "http://localhost:8080/iam-0.1.0/iam", description = "Local Development Server")
+        @Server(url = "https://localhost:8443/iam-0.1.0/iam", description = "Local Development Server (HTTPS)")
     }
 )
 public class IamApplication extends Application {

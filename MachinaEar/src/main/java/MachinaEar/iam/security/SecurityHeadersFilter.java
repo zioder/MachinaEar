@@ -52,7 +52,7 @@ public class SecurityHeadersFilter implements Filter {
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data:; " +
-            "connect-src 'self' http://localhost:3000 http://localhost:8080; " +
+            "connect-src 'self' https://localhost:3000 https://localhost:8443; " +
             "frame-ancestors 'none';"
         );
 

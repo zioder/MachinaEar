@@ -5,13 +5,13 @@
 
 // Backend API base URL
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam-0.1.0/iam";
+  process.env.NEXT_PUBLIC_API_URL || "https://localhost:8443/iam-0.1.0/iam";
 
 // Frontend base URL
 export const FRONTEND_URL =
   typeof window !== "undefined"
     ? window.location.origin
-    : process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
+    : process.env.NEXT_PUBLIC_FRONTEND_URL || "https://localhost:3000";
 
 // OAuth configuration
 export const OAUTH_CLIENT_ID =

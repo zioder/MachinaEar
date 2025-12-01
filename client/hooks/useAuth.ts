@@ -47,7 +47,7 @@ export function useAuth() {
 
       // Redirect to returnTo or home
       if (returnTo) {
-        window.location.href = `http://localhost:8080/iam-0.1.0/iam${returnTo}`;
+        window.location.href = `https://localhost:8443/iam-0.1.0/iam${returnTo}`;
       } else {
         router.push('/home');
       }

@@ -37,3 +37,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Service worker generated files
+/public/sw.js
+/public/workbox-*.js
+
+# HTTPS certificates
+*.pem
+*.key
+*.crt
+
+# Local server files
+server.js.map
