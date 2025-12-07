@@ -1,0 +1,15 @@
+project: mlops
+registry: registry.db
+provider: local
+
+online_store:
+  type: postgres
+  host: localhost
+  port: 5432
+  database: feast_online
+  user: postgres
+  password: Chiheb12345
+
+
+offline_store:
+   type: file
