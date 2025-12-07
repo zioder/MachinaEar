@@ -1,8 +1,8 @@
-# 🔧 Détection d'Anomalies dans les Machines - Projet MLOps
+#  Détection d'Anomalies dans les Machines - Projet MLOps
 
 Système de détection d'anomalies en temps réel basé sur l'analyse des vibrations de machines industrielles utilisant des techniques d'apprentissage profond non supervisé.
 
-## 📋 Table des Matières
+##  Table des Matières
 
 - [Vue d'Ensemble](#vue-densemble)
 - [Architecture](#architecture)
@@ -16,7 +16,7 @@ Système de détection d'anomalies en temps réel basé sur l'analyse des vibrat
 
 ---
 
-## 🎯 Vue d'Ensemble
+##  Vue d'Ensemble
 
 Ce projet implémente un pipeline MLOps complet pour la détection d'anomalies dans les machines industrielles à partir de signaux audio de vibrations.
 
@@ -30,14 +30,14 @@ Ce projet implémente un pipeline MLOps complet pour la détection d'anomalies d
 
 ### Cas d'Usage
 
-✅ Maintenance prédictive  
-✅ Détection de pannes  
-✅ Surveillance en temps réel  
-✅ Réduction des temps d'arrêt  
+ Maintenance prédictive  
+ Détection de pannes  
+ Surveillance en temps réel  
+ Réduction des temps d'arrêt  
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -104,7 +104,7 @@ Ce projet implémente un pipeline MLOps complet pour la détection d'anomalies d
 
 ---
 
-## 💻 Installation
+##  Installation
 
 ### Prérequis
 
@@ -113,12 +113,7 @@ Ce projet implémente un pipeline MLOps complet pour la détection d'anomalies d
 - 8GB RAM minimum
 - GPU recommandé (optionnel)
 
-### 1. Cloner le Repository
-
-```bash
-git clone <votre-repo>
-cd mlops
-```
+ 
 
 ### 2. Créer l'Environnement Virtuel
 
@@ -154,7 +149,7 @@ CREATE DATABASE mlflow_db;
 
 ---
 
-## 📦 Partie 1 : Feature Engineering & Feature Store
+##  Partie 1 : Feature Engineering & Feature Store
 
 ### Objectif
 
@@ -262,7 +257,7 @@ historical = store.get_historical_features(
 
 ---
 
-## 🤖 Partie 2 : Training & MLflow
+##  Partie 2 : Training & MLflow
 
 ### Objectif
 
@@ -370,31 +365,16 @@ mlflow ui --backend-store-uri postgresql://postgres:PASSWORD@localhost:5432/mlfl
 Ouvrir : **http://localhost:5000**
 
 **Fonctionnalités** :
-- 📊 Comparaison des runs
-- 📈 Visualisation des métriques
-- 🔍 Recherche par hyperparamètres
-- 💾 Model Registry
-- 🏷️ Tagging et versioning
-
-### 2.7 Principe de Détection
-
-```python
-# Données normales → Faible erreur de reconstruction
-error_normal = MSE(input, autoencoder(input))  # ~ 0.01
-
-# Données anormales → Forte erreur de reconstruction  
-error_anomaly = MSE(input, autoencoder(input))  # ~ 0.05
-
-# Décision
-if error > threshold:
-    prediction = "ANOMALY" 🚨
-else:
-    prediction = "NORMAL" ✅
-```
+- Comparaison des runs
+- Visualisation des métriques
+- Recherche par hyperparamètres
+- Model Registry
+- Tagging et versioning
+ 
 
 ---
 
-## 📂 Structure du Projet
+##  Structure du Projet
 
 ```
 mlops/
@@ -430,7 +410,7 @@ README.md                                # Ce fichier
 
 ---
 
-## 🚀 Utilisation
+## 🚀Utilisation
 
 ### Workflow Complet
 
@@ -456,26 +436,9 @@ python mlops/training/train.py
 mlflow ui --backend-store-uri postgresql://postgres:PASSWORD@localhost:5432/mlflow_db
 ```
 
-### Test d'Inférence
+ 
 
-```python
-import torch
-from mlops.training.model import LitAutoEncoder
-
-# Charger le modèle
-model = LitAutoEncoder.load_from_checkpoint("checkpoints/best.ckpt")
-model.eval()
-
-# Prédire
-with torch.no_grad():
-    is_anomaly, error = model.predict_anomaly(spectrogram_tensor)
-    
-print(f"Anomalie: {is_anomaly}, Erreur: {error:.4f}")
-```
-
----
-
-## ⚙️ Configuration
+##  Configuration
 
 ### PostgreSQL
 
@@ -497,84 +460,9 @@ max_epochs = 50                 # Durée training
 batch_size = 32                 # Selon RAM/GPU
 ```
 
----
+ 
 
-## 🐛 Troubleshooting
-
-### Erreur : "Cannot connect to PostgreSQL"
-
-```bash
-# Vérifier que PostgreSQL est lancé
-# Windows: Services → PostgreSQL → Démarrer
-
-# Tester la connexion
-psql -U postgres -h localhost
-```
-
-### Erreur : "CUDA out of memory"
-
-```python
-# Réduire batch_size
-train_model(batch_size=16)
-
-# Ou forcer CPU
-train_model(accelerator="cpu")
-```
-
-### Erreur : "No audio files found"
-
-```bash
-# Vérifier la structure
-ls data/normal/
-ls data/test/
-
-# Extensions supportées: .wav, .mp3, .flac, .ogg
-```
-
-### Erreur : "Cannot determine label"
-
-Les fichiers dans `data/test/` doivent contenir "normal" ou "anomaly" dans leur nom :
-- ✅ `normal_001.wav`
-- ✅ `test_anomaly_005.wav`
-- ❌ `file_001.wav` (pas de label clair)
-
-### Performance faible
-
-- **AUC < 0.7** : Augmenter epochs, ajuster learning_rate
-- **F1 < 0.6** : Vérifier quality des données, ajuster threshold
-- **Trop de faux positifs** : Augmenter threshold_percentile (ex: 97)
-- **Anomalies manquées** : Diminuer threshold_percentile (ex: 90)
-
----
-
-## 📊 Exemples de Résultats
-
-### Training Réussi
-
-```
-Epoch 50/50: 100%|████████| 88/88 [02:30<00:00]
-train_loss: 0.0189
-val_loss: 0.0234
-threshold: 0.0312
-
-Test Metrics:
-- AUC: 0.9245
-- F1 Score: 0.8567
-- Recall: 0.8900
-- Precision: 0.8260
-- Accuracy: 0.8750
-```
-
-### Interprétation
-
-- **AUC > 0.9** : Excellente séparation normal/anomaly ✅
-- **F1 > 0.85** : Bon équilibre détection/précision ✅
-- **Recall 89%** : 89% des anomalies détectées ✅
-- **Precision 82%** : 82% des alertes sont vraies ✅
-
----
-
-## 🔮 Prochaines Étapes
+##  Prochaines Étapes
 
 - [ ] API FastAPI pour inférence temps réel
 - [ ] Dashboard de monitoring (Grafana)
@@ -585,7 +473,7 @@ Test Metrics:
 
 ---
 
-## 📚 Ressources
+##  Ressources
 
 - [Feast Documentation](https://docs.feast.dev/)
 - [MLflow Documentation](https://mlflow.org/docs/latest/index.html)
@@ -593,17 +481,4 @@ Test Metrics:
 - [Librosa Audio Processing](https://librosa.org/)
 
 ---
-
-## 👥 Auteurs
-
-Projet MLOps - Détection d'Anomalies dans les Machines Industrielles
-
----
-
-## 📄 License
-
-[Votre License]
-
----
-
-**🎯 Happy Anomaly Hunting! 🔧**
+ 
