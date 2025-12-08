@@ -82,8 +82,8 @@ public class TokenEndpoint {
                     code, clientId, redirectUri, codeVerifier
                 );
 
-                // Set tokens as httpOnly cookies
-                setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
+                // Cookies disabled for cross-domain auth - tokens returned in response body
+                // setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
 
                 // Also return tokens in response body for compatibility
                 return Response.ok(tokenPair).build();
@@ -105,8 +105,8 @@ public class TokenEndpoint {
             try {
                 var tokenPair = manager.refresh(refreshToken);
 
-                // Set tokens as httpOnly cookies
-                setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
+                // Cookies disabled for cross-domain auth - tokens returned in response body
+                // setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
 
                 return Response.ok(tokenPair).build();
 

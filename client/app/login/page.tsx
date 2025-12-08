@@ -4,12 +4,13 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Input, Alert, LoadingSpinner } from "@/components/ui";
 import { useAuth } from "@/hooks";
+import { API_URL } from "@/lib/constants";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isAuthenticated } = useAuth();
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -23,7 +24,7 @@ function LoginForm() {
   useEffect(() => {
     if (isAuthenticated) {
       if (returnTo) {
-        window.location.href = `https://localhost:8443/iam-0.1.0/iam${returnTo}`;
+        window.location.href = `${API_URL}${returnTo}`;
       } else {
         router.push("/home");
       }
@@ -83,7 +84,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            
+
             <Input
               id="password"
               name="password"
