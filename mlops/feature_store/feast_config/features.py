@@ -1,28 +1,6 @@
-# feast_config/feature_store.yaml
-# Sauvegarder ce fichier dans le dossier feast_config/
-
-"""
-project: machine_anomaly_detection
-registry: postgresql://postgres:password@localhost:5432/feast_registry
-provider: local
-online_store:
-  type: postgres
-  host: localhost
-  port: 5432
-  database: feast_online
-  db_schema: public
-  user: postgres
-  password: password
-
-offline_store:
-  type: file
-"""
-
-# ================================
 # feast_config/features.py
 # Définitions des features pour Feast (Syntaxe moderne)
-# ================================
-
+ 
 from feast import Entity, FeatureView, Field, FileSource, ValueType
 from feast.types import Float32, String, Int64
 from datetime import timedelta
