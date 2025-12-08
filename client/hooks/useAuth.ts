@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthService } from '@/lib/auth';
 import type { User, LoginCredentials, RegisterCredentials } from '@/types/auth';
+import { API_URL } from '@/lib/constants';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -47,7 +48,7 @@ export function useAuth() {
 
       // Redirect to returnTo or home
       if (returnTo) {
-        window.location.href = `https://localhost:8443/iam-0.1.0/iam${returnTo}`;
+        window.location.href = `${API_URL}${returnTo}`;
       } else {
         router.push('/home');
       }
@@ -68,11 +69,11 @@ export function useAuth() {
 
     try {
       await AuthService.register(credentials);
-      
+
       // Get updated user
       const currentUser = await AuthService.getCurrentUser();
       setUser(currentUser);
-      
+
       router.push('/home');
       return { success: true };
     } catch (err) {

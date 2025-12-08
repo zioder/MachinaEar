@@ -5,7 +5,7 @@
 
 // Backend API base URL
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://localhost:8443/iam-0.1.0/iam";
+  process.env.NEXT_PUBLIC_API_URL || "https://iam.machinaear.me/iam";
 
 // Frontend base URL
 export const FRONTEND_URL =

@@ -35,10 +35,19 @@ export class ApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+      // Get token from localStorage
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+
+      // Add Authorization header if token exists
+      const headers = {
+        ...fetchConfig.headers,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
       const response = await fetch(url, {
         ...fetchConfig,
+        headers,
         signal: controller.signal,
-        credentials: 'include', // Always include cookies
       });
 
       clearTimeout(timeoutId);

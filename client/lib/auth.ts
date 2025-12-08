@@ -11,18 +11,54 @@ import type {
 import { API_ENDPOINTS } from "@/lib/constants";
 
 /**
- * AuthService handles authentication with httpOnly cookies
- * Tokens are automatically sent with requests via cookies
- * No manual token management needed - more secure against XSS
+ * AuthService handles authentication with localStorage tokens
+ * Tokens are stored in localStorage and sent in Authorization header
+ * This approach works with cross-domain APIs (machinaear.me <-> iam.machinaear.me)
  */
 export class AuthService {
+  private static readonly ACCESS_TOKEN_KEY = "access_token";
+  private static readonly REFRESH_TOKEN_KEY = "refresh_token";
+
+  private static getAccessToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(this.ACCESS_TOKEN_KEY);
+  }
+
+  private static getRefreshToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(this.REFRESH_TOKEN_KEY);
+  }
+
+  private static setTokens(accessToken: string, refreshToken: string): void {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
+    localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
+  }
+
+  private static clearTokens(): void {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(this.ACCESS_TOKEN_KEY);
+    localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+  }
+
+  private static getAuthHeaders(): HeadersInit {
+    const token = this.getAccessToken();
+    return token
+      ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+      : {
+        "Content-Type": "application/json",
+      };
+  }
+
   static async register(credentials: RegisterCredentials): Promise<TokenPair> {
     const response = await fetch(API_ENDPOINTS.REGISTER, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // Important: include cookies
       body: JSON.stringify({
         email: credentials.email,
         username: credentials.username,
@@ -32,18 +68,18 @@ export class AuthService {
 
     if (!response.ok) {
       let error = await response.text();
-      // Try to parse JSON error response
       try {
         const errorJson = JSON.parse(error);
         error = errorJson.message || errorJson.error || error;
       } catch (e) {
-      // If not JSON, use the text as-is
+        // If not JSON, use the text as-is
       }
       throw new Error(error || "Registration failed");
     }
 
     const tokens: TokenPair = await response.json();
-    // Tokens are now in httpOnly cookies - no need to store in localStorage
+    // Store tokens in localStorage
+    this.setTokens(tokens.accessToken, tokens.refreshToken);
     return tokens;
   }
 
@@ -53,7 +89,6 @@ export class AuthService {
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // Important: include cookies
       body: JSON.stringify(credentials),
     });
 
@@ -63,12 +98,18 @@ export class AuthService {
     }
 
     const result: LoginResult = await response.json();
-    // Tokens are now in httpOnly cookies - backend sets them automatically
+    // Store tokens in localStorage if authentication succeeded
+    if (result.authenticated && result.tokens) {
+      this.setTokens(result.tokens.accessToken, result.tokens.refreshToken);
+    }
     return result;
   }
 
   static async refreshToken(): Promise<boolean> {
     try {
+      const refreshToken = this.getRefreshToken();
+      if (!refreshToken) return false;
+
       const response = await fetch(API_ENDPOINTS.REFRESH, {
         method: "POST",
         headers: {
@@ -76,41 +117,50 @@ export class AuthService {
         },
         body: new URLSearchParams({
           grant_type: "refresh_token",
+          refresh_token: refreshToken,
         }),
-        credentials: "include", // Refresh token sent automatically via cookie
       });
 
       if (!response.ok) {
+        this.clearTokens();
         return false;
       }
 
-      // Tokens are refreshed in cookies automatically
+      const tokens: TokenPair = await response.json();
+      this.setTokens(tokens.accessToken, tokens.refreshToken);
       return true;
     } catch (error) {
+      this.clearTokens();
       return false;
     }
   }
 
   static async logout(): Promise<void> {
     try {
-      // Call backend to clear cookies and session
+      // Call backend to invalidate session
       await fetch(API_ENDPOINTS.LOGOUT, {
         method: "POST",
-        credentials: "include",
+        headers: this.getAuthHeaders(),
       });
     } catch (error) {
       console.error("Logout error:", error);
+    } finally {
+      // Always clear local tokens
+      this.clearTokens();
     }
   }
 
   /**
-   * Gets current user by making an API call with the access token from cookie
+   * Gets current user by making an API call with the access token
    */
   static async getCurrentUser(): Promise<User | null> {
     try {
+      const token = this.getAccessToken();
+      if (!token) return null;
+
       const response = await fetch(API_ENDPOINTS.ME, {
         method: "GET",
-        credentials: "include", // Token sent automatically via cookie
+        headers: this.getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -120,6 +170,7 @@ export class AuthService {
           // Retry with refreshed token
           return this.getCurrentUser();
         }
+        this.clearTokens();
         return null;
       }
 
@@ -127,6 +178,7 @@ export class AuthService {
       return user;
     } catch (error) {
       console.error("Error getting current user:", error);
+      this.clearTokens();
       return null;
     }
   }
@@ -137,14 +189,10 @@ export class AuthService {
   }
 
   // 2FA Management Methods
-  // All methods now use httpOnly cookies for authentication
   static async setup2FA(email: string): Promise<TwoFactorSetup> {
     const response = await fetch(API_ENDPOINTS.SETUP_2FA, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Token sent automatically via cookie
+      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email }),
     });
 
@@ -164,10 +212,7 @@ export class AuthService {
   ): Promise<void> {
     const response = await fetch(API_ENDPOINTS.ENABLE_2FA, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Token sent automatically via cookie
+      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email, secret, verificationCode, recoveryCodes }),
     });
 
@@ -180,10 +225,7 @@ export class AuthService {
   static async disable2FA(email: string, password: string): Promise<void> {
     const response = await fetch(API_ENDPOINTS.DISABLE_2FA, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Token sent automatically via cookie
+      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email, password }),
     });
 
@@ -196,10 +238,7 @@ export class AuthService {
   static async regenerateRecoveryCodes(email: string, password: string): Promise<string[]> {
     const response = await fetch(API_ENDPOINTS.REGENERATE_CODES, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Token sent automatically via cookie
+      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email, password }),
     });
 

@@ -84,7 +84,8 @@ public class AuthenticationEndpoint {
             var pair = manager.register(req.email, req.username, req.password.toCharArray());
             
             // Set tokens as httpOnly cookies
-            setTokenCookies(response, pair.accessToken(), pair.refreshToken());
+            // Cookies disabled for cross-domain auth - tokens returned in response body
+            // setTokenCookies(response, pair.accessToken(), pair.refreshToken());
             
             return Response.ok(pair).build();
         } catch (IllegalArgumentException e) {
@@ -143,7 +144,8 @@ public class AuthenticationEndpoint {
 
                 // Set tokens as httpOnly cookies
                 if (result.tokens() != null) {
-                    setTokenCookies(response, result.tokens().accessToken(), result.tokens().refreshToken());
+                    // Cookies disabled for cross-domain auth - tokens returned in response body
+                    // setTokenCookies(response, result.tokens().accessToken(), result.tokens().refreshToken());
                 }
 
                 // Check if this is part of OAuth flow
@@ -280,28 +282,29 @@ public class AuthenticationEndpoint {
      * Protects against XSS attacks.
      */
     private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken) {
-        // Determine if we're in production (check for HTTPS or production environment variable)
-        String env = System.getProperty("app.environment", System.getenv("APP_ENVIRONMENT"));
-        boolean isProduction = "production".equalsIgnoreCase(env);
-        // For development, allow HTTP cookies. In production, enforce HTTPS.
-        boolean secureFlag = isProduction;
-
+        // For cross-site cookies (machinaear.me <-> iam.machinaear.me), we need:
+        // - Domain=.machinaear.me (to share across subdomains)
+        // - SameSite=None (to allow cross-site)
+        // - Secure=true (required when SameSite=None)
+        
         // Access token cookie (30 minutes)
         Cookie accessCookie = new Cookie("access_token", accessToken);
+        accessCookie.setDomain(".machinaear.me"); // Share across subdomains
         accessCookie.setHttpOnly(true);  // Prevents JavaScript access
-        accessCookie.setSecure(secureFlag); // HTTPS only in production
+        accessCookie.setSecure(true); // Required for SameSite=None
         accessCookie.setPath("/");
         accessCookie.setMaxAge(30 * 60); // 30 minutes
-        accessCookie.setAttribute("SameSite", "Strict"); // Strong CSRF protection
+        accessCookie.setAttribute("SameSite", "None"); // Allow cross-site cookies
         response.addCookie(accessCookie);
 
         // Refresh token cookie (7 days)
         Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
+        refreshCookie.setDomain(".machinaear.me"); // Share across subdomains
         refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(secureFlag); // HTTPS only in production
+        refreshCookie.setSecure(true); // Required for SameSite=None
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-        refreshCookie.setAttribute("SameSite", "Strict"); // Strong CSRF protection
+        refreshCookie.setAttribute("SameSite", "None"); // Allow cross-site cookies
         response.addCookie(refreshCookie);
     }
 
