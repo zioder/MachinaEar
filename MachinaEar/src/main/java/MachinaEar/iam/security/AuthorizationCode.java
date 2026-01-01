@@ -1,7 +1,8 @@
 package MachinaEar.iam.security;
 
 import java.time.Instant;
-import org.bson.types.ObjectId;
+import java.util.ArrayList;
+import java.util.List;
 
 import MachinaEar.iam.entities.RootEntity;
 
@@ -22,7 +23,7 @@ public class AuthorizationCode extends RootEntity {
     private String codeChallengeMethod;     // "S256" or "plain"
 
     // Optional
-    private String scope;                   // Requested scopes
+    private List<String> scopes = new ArrayList<>();  // Requested scopes
     private String state;                   // CSRF protection token
 
     public AuthorizationCode() {}
@@ -51,8 +52,8 @@ public class AuthorizationCode extends RootEntity {
     public String getCodeChallengeMethod() { return codeChallengeMethod; }
     public void setCodeChallengeMethod(String codeChallengeMethod) { this.codeChallengeMethod = codeChallengeMethod; }
 
-    public String getScope() { return scope; }
-    public void setScope(String scope) { this.scope = scope; }
+    public List<String> getScopes() { return scopes; }
+    public void setScopes(List<String> scopes) { this.scopes = scopes; }
 
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }
