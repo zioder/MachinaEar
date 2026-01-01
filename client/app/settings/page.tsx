@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthService } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/user";
 import { use2FA } from "@/hooks";
 import { Button, Alert, LoadingSpinner } from "@/components/ui";
 import {
@@ -21,12 +21,12 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
   const router = useRouter();
-  
+
   const { setup, loading, error, initiate2FASetup, enable2FA, disable2FA, regenerateRecoveryCodes } = use2FA();
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await AuthService.getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
         router.push("/");
         return;

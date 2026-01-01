@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthService } from '@/lib/auth';
-import type { User, LoginCredentials, RegisterCredentials } from '@/types/auth';
-import { API_URL } from '@/lib/constants';
+import { getCurrentUser } from '@/lib/user';
+import { logout as oauthLogout } from '@/lib/oauth';
+import type { User } from '@/types/auth';
 
+/**
+ * Authentication hook for OAuth 2.1
+ * Manages user state and authentication status
+ *
+ * Note: For login, use initiateOAuthFlow() from @/lib/oauth
+ * Login and registration are handled by the IAM server
+ */
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   // Load current user on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await AuthService.getCurrentUser();
+        const currentUser = await getCurrentUser();
         setUser(currentUser);
       } catch (err) {
         console.error('Error loading user:', err);
-        // Don't set error state for network errors during initial load
-        // This allows the app to function in offline mode
         setUser(null);
       } finally {
         setLoading(false);
@@ -29,66 +33,10 @@ export function useAuth() {
     loadUser();
   }, []);
 
-  const login = async (credentials: LoginCredentials, returnTo?: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await AuthService.login(credentials);
-
-      // Check if 2FA is required
-      if (result.twoFactorEnabled && !result.authenticated) {
-        setLoading(false);
-        return { requires2FA: true, success: false };
-      }
-
-      // Login successful - update user state
-      const currentUser = await AuthService.getCurrentUser();
-      setUser(currentUser);
-
-      // Redirect to returnTo or home
-      if (returnTo) {
-        window.location.href = `${API_URL}${returnTo}`;
-      } else {
-        router.push('/home');
-      }
-
-      return { requires2FA: false, success: true };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-      return { requires2FA: false, success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (credentials: RegisterCredentials) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      await AuthService.register(credentials);
-
-      // Get updated user
-      const currentUser = await AuthService.getCurrentUser();
-      setUser(currentUser);
-
-      router.push('/home');
-      return { success: true };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const logout = async () => {
     setLoading(true);
     try {
-      await AuthService.logout();
+      await oauthLogout();
       setUser(null);
       router.push('/');
     } catch (err) {
@@ -100,7 +48,7 @@ export function useAuth() {
 
   const refreshUser = async () => {
     try {
-      const currentUser = await AuthService.getCurrentUser();
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
       return currentUser;
     } catch (err) {
@@ -112,9 +60,6 @@ export function useAuth() {
   return {
     user,
     loading,
-    error,
-    login,
-    register,
     logout,
     refreshUser,
     isAuthenticated: !!user,
