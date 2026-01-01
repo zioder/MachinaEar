@@ -21,9 +21,10 @@ import MachinaEar.iam.entities.Client;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.util.List;
 
 @Path("/auth")
-@Tag(name = "OAuth 2.0", description = "OAuth 2.0 Authorization Code Flow with PKCE")
+@Tag(name = "Authorization", description = "Authorization Code Flow with PKCE")
 public class AuthorizeEndpoint {
 
     @Inject PhoenixIAMManager manager;
@@ -32,8 +33,8 @@ public class AuthorizeEndpoint {
     @GET @Path("/authorize")
     @Produces(MediaType.TEXT_HTML)
     @Operation(
-        summary = "OAuth 2.0 Authorization Endpoint",
-        description = "Initiates OAuth 2.0 authorization code flow with PKCE. " +
+        summary = "Authorization Endpoint",
+        description = "Initiates authorization code flow with PKCE. " +
                      "Redirects to login if user not authenticated, otherwise generates authorization code."
     )
     @APIResponses({
@@ -81,6 +82,12 @@ public class AuthorizeEndpoint {
                 .entity("Missing required parameters: client_id, redirect_uri, code_challenge, code_challenge_method").build();
         }
 
+        // Enforce PKCE S256 per OAuth 2.1
+        if (!"S256".equals(codeChallengeMethod)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity("Invalid code_challenge_method. Must be 'S256'").build();
+        }
+
         // Validate client exists
         Client client = clients.findByClientId(clientId).orElse(null);
         if (client == null || !client.isActive()) {
@@ -106,16 +113,17 @@ public class AuthorizeEndpoint {
             try {
                 // Store authorization request in session for after login
                 HttpSession newSession = request.getSession(true);
-                newSession.setAttribute("oauth_client_id", clientId);
-                newSession.setAttribute("oauth_redirect_uri", redirectUri);
-                newSession.setAttribute("oauth_code_challenge", codeChallenge);
-                newSession.setAttribute("oauth_code_challenge_method", codeChallengeMethod);
-                newSession.setAttribute("oauth_state", state);
-                newSession.setAttribute("oauth_scope", scope);
+                newSession.setAttribute("auth_client_id", clientId);
+                newSession.setAttribute("auth_redirect_uri", redirectUri);
+                newSession.setAttribute("auth_code_challenge", codeChallenge);
+                newSession.setAttribute("auth_code_challenge_method", codeChallengeMethod);
+                newSession.setAttribute("auth_state", state);
+                newSession.setAttribute("auth_scope", scope);
 
-                // Redirect to Next.js login page with returnTo parameter
-                // Build the return URL to continue OAuth flow after login
-                StringBuilder returnToUrl = new StringBuilder("/auth/authorize")
+                // Build the return URL to continue authorization flow after login
+                // Must include full context path + application path for proper redirect
+                StringBuilder returnToUrl = new StringBuilder(request.getContextPath())
+                    .append("/iam/auth/authorize")
                     .append("?response_type=code")
                     .append("&client_id=").append(URLEncoder.encode(clientId, "UTF-8"))
                     .append("&redirect_uri=").append(URLEncoder.encode(redirectUri, "UTF-8"))
@@ -129,19 +137,33 @@ public class AuthorizeEndpoint {
                     returnToUrl.append("&scope=").append(URLEncoder.encode(scope, "UTF-8"));
                 }
 
-                // Redirect to Next.js login page with returnTo parameter
-                String frontendUrl = System.getenv().getOrDefault("FRONTEND_URL", "https://localhost:3000");
-                String loginUrl = frontendUrl + "/login?returnTo=" + URLEncoder.encode(returnToUrl.toString(), "UTF-8");
+                // Redirect to server-hosted login page with returnTo parameter (same origin as IAM)
+                // Build absolute URL to avoid path resolution issues
+                String scheme = request.getScheme();
+                String serverName = request.getServerName();
+                int serverPort = request.getServerPort();
+                String contextPath = request.getContextPath();
 
-                return Response.seeOther(URI.create(loginUrl)).build();
+                StringBuilder loginUrlBuilder = new StringBuilder();
+                loginUrlBuilder.append(scheme).append("://").append(serverName);
+                if ((scheme.equals("http") && serverPort != 80) || (scheme.equals("https") && serverPort != 443)) {
+                    loginUrlBuilder.append(":").append(serverPort);
+                }
+                loginUrlBuilder.append(contextPath).append("/login.html?returnTo=")
+                    .append(URLEncoder.encode(returnToUrl.toString(), "UTF-8"));
+
+                return Response.seeOther(URI.create(loginUrlBuilder.toString())).build();
             } catch (Exception e) {
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Failed to initiate login").build();
             }
         }
 
-        // User is authenticated - generate authorization code
+        // User is authenticated - validate scopes and generate authorization code
         try {
+            // Validate requested scopes
+            List<String> validatedScopes = manager.validateScopes(scope, client);
+
             String code = manager.createAuthorizationCode(
                 authenticatedIdentityId,
                 clientId,
@@ -149,7 +171,7 @@ public class AuthorizeEndpoint {
                 codeChallenge,
                 codeChallengeMethod,
                 state,
-                scope
+                validatedScopes
             );
 
             // Build redirect URL with authorization code
@@ -162,14 +184,14 @@ public class AuthorizeEndpoint {
                 redirectUrl.append("&state=").append(URLEncoder.encode(state, "UTF-8"));
             }
 
-            // Clear OAuth parameters from session
+            // Clear authorization parameters from session
             if (session != null) {
-                session.removeAttribute("oauth_client_id");
-                session.removeAttribute("oauth_redirect_uri");
-                session.removeAttribute("oauth_code_challenge");
-                session.removeAttribute("oauth_code_challenge_method");
-                session.removeAttribute("oauth_state");
-                session.removeAttribute("oauth_scope");
+                session.removeAttribute("auth_client_id");
+                session.removeAttribute("auth_redirect_uri");
+                session.removeAttribute("auth_code_challenge");
+                session.removeAttribute("auth_code_challenge_method");
+                session.removeAttribute("auth_state");
+                session.removeAttribute("auth_scope");
             }
 
             return Response.seeOther(URI.create(redirectUrl.toString())).build();
