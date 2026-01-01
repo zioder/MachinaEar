@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
@@ -19,8 +20,11 @@ import MachinaEar.iam.controllers.repositories.IdentityRepository;
 import MachinaEar.iam.controllers.repositories.GrantRepository;
 import MachinaEar.iam.controllers.repositories.ClientRepository;
 import MachinaEar.iam.controllers.repositories.AuthorizationCodeRepository;
+import MachinaEar.iam.controllers.repositories.ScopeRepository;
+import MachinaEar.iam.controllers.repositories.RefreshTokenRepository;
 import MachinaEar.iam.entities.Identity;
 import MachinaEar.iam.entities.Client;
+import MachinaEar.iam.entities.Scope;
 import MachinaEar.iam.security.Argon2Utility;
 import MachinaEar.iam.security.AuthorizationCode;
 import MachinaEar.iam.security.JwtManager;
@@ -34,6 +38,8 @@ public class PhoenixIAMManager {
     @Inject GrantRepository grants;
     @Inject ClientRepository clients;
     @Inject AuthorizationCodeRepository authCodes;
+    @Inject ScopeRepository scopes;
+    @Inject RefreshTokenRepository refreshTokens;
     @Inject JwtManager jwt;
     @Inject TotpManager totpManager;
 
@@ -133,11 +139,25 @@ public class PhoenixIAMManager {
         return new LoginResult(new TokenPair(access, refresh), user.isTwoFactorEnabled(), true);
     }
 
+    /**
+     * Refreshes access token with OAuth 2.1 refresh token rotation.
+     * The old refresh token is revoked and a new one is issued.
+     */
     public TokenPair refresh(String refreshToken) {
         try {
+            // Validate JWT structure and signature
             var claims = jwt.validate(refreshToken);
             if (!"refresh".equals(claims.getStringClaim("typ")))
                 throw new SecurityException("Not a refresh token");
+            
+            // Check if token exists and is valid in database (OAuth 2.1 requirement)
+            var tokenRecord = refreshTokens.findByToken(refreshToken)
+                .orElseThrow(() -> new SecurityException("Refresh token not found"));
+            
+            if (!tokenRecord.isValid()) {
+                throw new SecurityException("Refresh token is revoked or expired");
+            }
+            
             String subject = claims.getSubject();
             Identity user = identities.findByEmail(subject)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown subject"));
@@ -146,12 +166,30 @@ public class PhoenixIAMManager {
             if (roles == null || roles.isEmpty())
                 roles = new HashSet<>(grants.findRolesByIdentity(user.getId()));
 
+            // Generate new tokens
             String access = jwt.generateAccessToken(user, roles, 30);
-            String refresh = jwt.generateRefreshToken(user, 7);
-            return new TokenPair(access, refresh);
+            String newRefresh = jwt.generateRefreshToken(user, 7);
+            
+            // OAuth 2.1: Store new refresh token and revoke old one (token rotation)
+            var newTokenRecord = refreshTokens.createWithToken(
+                newRefresh, 
+                user.getId().toHexString(), 
+                tokenRecord.getClientId(),
+                Instant.now().plusSeconds(7 * 24 * 60 * 60)
+            );
+            refreshTokens.revokeAndReplace(refreshToken, newTokenRecord.getId().toHexString());
+            
+            return new TokenPair(access, newRefresh);
         } catch (Exception e) {
-            throw new SecurityException("Invalid refresh token");
+            throw new SecurityException("Invalid refresh token: " + e.getMessage());
         }
+    }
+
+    /**
+     * Revokes a refresh token (used by the revocation endpoint).
+     */
+    public void revokeRefreshToken(String refreshToken) {
+        refreshTokens.revoke(refreshToken);
     }
 
     /**
@@ -160,6 +198,10 @@ public class PhoenixIAMManager {
     public TwoFactorSetup setup2FA(String email) {
         Identity user = identities.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown email"));
+
+        if (!user.isActive()) {
+            throw new IllegalStateException("User disabled");
+        }
 
         // Generate new secret
         String secret = totpManager.generateSecret();
@@ -265,12 +307,12 @@ public class PhoenixIAMManager {
      * @param codeChallenge The PKCE code challenge (SHA256 of verifier)
      * @param codeChallengeMethod PKCE method ("S256" or "plain")
      * @param state Optional state parameter for CSRF protection
-     * @param scope Optional requested scopes
+     * @param scopesRequested Optional requested scopes as list
      * @return The generated authorization code string
      */
     public String createAuthorizationCode(String identityId, String clientId, String redirectUri,
                                          String codeChallenge, String codeChallengeMethod,
-                                         String state, String scope) {
+                                         String state, List<String> scopesRequested) {
         // Validate client exists
         Client client = clients.findByClientId(clientId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid client_id"));
@@ -280,9 +322,9 @@ public class PhoenixIAMManager {
             throw new SecurityException("Invalid redirect_uri for this client");
         }
 
-        // Validate code_challenge_method
-        if (!"S256".equals(codeChallengeMethod) && !"plain".equals(codeChallengeMethod)) {
-            throw new IllegalArgumentException("Invalid code_challenge_method. Must be 'S256' or 'plain'");
+        // Enforce S256 per OAuth 2.1 (plain is no longer permitted)
+        if (!"S256".equals(codeChallengeMethod)) {
+            throw new IllegalArgumentException("Invalid code_challenge_method. Must be 'S256'");
         }
 
         // Generate cryptographically secure authorization code
@@ -299,7 +341,7 @@ public class PhoenixIAMManager {
         authCode.setCodeChallenge(codeChallenge);
         authCode.setCodeChallengeMethod(codeChallengeMethod);
         authCode.setState(state);
-        authCode.setScope(scope);
+        authCode.setScopes(scopesRequested != null ? scopesRequested : new ArrayList<>());
         authCode.setExpiresAt(Instant.now().plusSeconds(600)); // 10 minutes
         authCode.setUsed(false);
 
@@ -362,9 +404,24 @@ public class PhoenixIAMManager {
             roles = new HashSet<>(grants.findRolesByIdentity(user.getId()));
         }
 
-        // Generate tokens
-        String accessToken = jwt.generateAccessToken(user, roles, 30); // 30 minutes
+        // Get client for audience
+        Client client = clients.findByClientId(clientId).orElse(null);
+        String audience = (client != null) ? client.getAudience() : null;
+
+        // Get scopes from authorization code
+        List<String> scopesList = authCode.getScopes();
+
+        // Generate OAuth tokens with scopes and audience
+        String accessToken = jwt.generateOAuthAccessToken(user, roles, scopesList, audience, 30);
         String refreshToken = jwt.generateRefreshToken(user, 7);       // 7 days
+        
+        // OAuth 2.1: Store refresh token for rotation and revocation
+        refreshTokens.createWithToken(
+            refreshToken, 
+            user.getId().toHexString(), 
+            clientId,
+            Instant.now().plusSeconds(7 * 24 * 60 * 60)
+        );
 
         return new TokenPair(accessToken, refreshToken);
     }
@@ -374,7 +431,7 @@ public class PhoenixIAMManager {
      *
      * @param codeVerifier The plain text verifier from client
      * @param codeChallenge The stored challenge (hash of verifier)
-     * @param method "S256" (SHA-256) or "plain"
+     * @param method "S256" (SHA-256)
      * @return true if valid, false otherwise
      */
     private boolean validatePkce(String codeVerifier, String codeChallenge, String method) {
@@ -389,9 +446,6 @@ public class PhoenixIAMManager {
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
                 computedChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-            } else if ("plain".equals(method)) {
-                // Plain method: verifier should equal challenge
-                computedChallenge = codeVerifier;
             } else {
                 return false;
             }
@@ -425,6 +479,65 @@ public class PhoenixIAMManager {
         client.setActive(true);
 
         return clients.create(client);
+    }
+
+    // ==================== OAuth 2.0 Scope Management ====================
+
+    /**
+     * Register a new OAuth scope
+     */
+    public Scope registerScope(String name, String description) {
+        if (scopes.scopeExists(name)) {
+            throw new IllegalArgumentException("Scope already exists");
+        }
+
+        Scope scope = new Scope();
+        scope.setName(name);
+        scope.setDescription(description);
+        scope.setActive(true);
+
+        return scopes.create(scope);
+    }
+
+    /**
+     * Get identity by email (for OAuth flow)
+     */
+    public Identity getIdentityByEmail(String email) {
+        return identities.findByEmail(email)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
+    /**
+     * Validate and parse requested scopes
+     * Ensures scopes exist in the system and client is authorized to request them
+     */
+    public List<String> validateScopes(String scopeParam, Client client) {
+        if (scopeParam == null || scopeParam.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<String> requestedScopes = Arrays.asList(scopeParam.split(" "));
+
+        // Validate scopes exist and are active
+        List<Scope> scopeEntities = scopes.findByNames(requestedScopes);
+        Set<String> validScopeNames = scopeEntities.stream()
+                .filter(Scope::isActive)
+                .map(Scope::getName)
+                .collect(Collectors.toSet());
+
+        // Check all requested scopes are valid
+        for (String requested : requestedScopes) {
+            if (!validScopeNames.contains(requested)) {
+                throw new IllegalArgumentException("Invalid scope: " + requested);
+            }
+        }
+
+        // Check client is allowed these scopes
+        if (!client.areScopesAllowed(requestedScopes)) {
+            throw new SecurityException("Client not authorized for requested scopes");
+        }
+
+        return requestedScopes;
     }
 
     // ==================== DTOs (Java 17 records) ====================
