@@ -15,8 +15,9 @@ export interface TokenResponse {
 /**
  * Initiates the OAuth 2.0 authorization code flow with PKCE
  * Redirects user to the authorization endpoint
+ * @param mode - Optional mode to pass to IAM ('login' or 'register')
  */
-export async function initiateOAuthFlow(): Promise<void> {
+export async function initiateOAuthFlow(mode?: 'login' | 'register'): Promise<void> {
   // Generate PKCE parameters
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -33,8 +34,12 @@ export async function initiateOAuthFlow(): Promise<void> {
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state: state,
-    scope: 'openid profile email', // Optional: adjust scopes as needed
   });
+
+  // Add mode parameter if specified
+  if (mode) {
+    params.set('mode', mode);
+  }
 
   const authorizationUrl = `${API_ENDPOINTS.AUTHORIZE}?${params.toString()}`;
 
