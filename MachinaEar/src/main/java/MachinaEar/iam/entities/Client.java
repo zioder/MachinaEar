@@ -12,6 +12,8 @@ public class Client extends RootEntity {
     private String clientName;      // Human-readable name
     private String clientType;      // "public" or "confidential"
     private List<String> redirectUris = new ArrayList<>();  // Allowed redirect URIs
+    private List<String> allowedScopes = new ArrayList<>(); // OAuth scopes this client can request
+    private String audience;        // Resource server identifier for JWT aud claim
     private boolean active = true;  // Whether client is active
 
     // For confidential clients (not used for public clients like SPAs)
@@ -29,6 +31,12 @@ public class Client extends RootEntity {
     public List<String> getRedirectUris() { return redirectUris; }
     public void setRedirectUris(List<String> redirectUris) { this.redirectUris = redirectUris; }
 
+    public List<String> getAllowedScopes() { return allowedScopes; }
+    public void setAllowedScopes(List<String> allowedScopes) { this.allowedScopes = allowedScopes; }
+
+    public String getAudience() { return audience; }
+    public void setAudience(String audience) { this.audience = audience; }
+
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
@@ -37,11 +45,27 @@ public class Client extends RootEntity {
 
     /**
      * Validates if a redirect URI is allowed for this client
+     * Uses EXACT matching for security (no prefix matching)
      */
     public boolean isRedirectUriAllowed(String redirectUri) {
         if (redirectUris == null || redirectUris.isEmpty()) {
             return false;
         }
-        return redirectUris.stream().anyMatch(allowed -> redirectUri.startsWith(allowed));
+        // EXACT match only - prevents open redirect vulnerabilities
+        // (e.g., prevents https://example.com from matching https://example.com.attacker.com)
+        return redirectUris.contains(redirectUri);
+    }
+
+    /**
+     * Validates if requested scopes are allowed for this client
+     */
+    public boolean areScopesAllowed(List<String> requestedScopes) {
+        if (requestedScopes == null || requestedScopes.isEmpty()) {
+            return true; // No scopes requested - always allowed
+        }
+        if (allowedScopes == null || allowedScopes.isEmpty()) {
+            return false; // Client has no allowed scopes
+        }
+        return allowedScopes.containsAll(requestedScopes);
     }
 }

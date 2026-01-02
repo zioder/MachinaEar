@@ -2,6 +2,7 @@ package MachinaEar.iam.boundaries;
 
 import jakarta.inject.Inject;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -19,14 +20,14 @@ import MachinaEar.iam.controllers.managers.PhoenixIAMManager;
 @Path("/auth")
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON)
-@Tag(name = "Token", description = "OAuth 2.0 Token operations")
+@Tag(name = "Token", description = "Token operations")
 public class TokenEndpoint {
 
     @Inject PhoenixIAMManager manager;
 
     @POST @Path("/token")
     @Operation(
-        summary = "OAuth 2.0 Token Endpoint",
+        summary = "Token Endpoint",
         description = "Exchange authorization code for tokens (authorization_code grant) or refresh access token (refresh_token grant)"
     )
     @APIResponses({
@@ -44,6 +45,7 @@ public class TokenEndpoint {
         )
     })
     public Response token(
+        @Context HttpServletRequest request,
         @Context HttpServletResponse response,
         @FormParam("grant_type")
         @Parameter(description = "'authorization_code' or 'refresh_token'", required = true)
@@ -82,8 +84,8 @@ public class TokenEndpoint {
                     code, clientId, redirectUri, codeVerifier
                 );
 
-                // Cookies disabled for cross-domain auth - tokens returned in response body
-                // setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
+                // Set httpOnly cookies for access and refresh tokens
+                setTokenCookies(request, response, tokenPair.accessToken(), tokenPair.refreshToken());
 
                 // Also return tokens in response body for compatibility
                 return Response.ok(tokenPair).build();
@@ -96,6 +98,15 @@ public class TokenEndpoint {
 
         } else if ("refresh_token".equals(grantType)) {
             // Refresh Token Grant
+            if (refreshToken == null && request != null && request.getCookies() != null) {
+                for (Cookie cookie : request.getCookies()) {
+                    if ("refresh_token".equals(cookie.getName())) {
+                        refreshToken = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
             if (refreshToken == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse("invalid_request", "Missing refresh_token"))
@@ -105,8 +116,8 @@ public class TokenEndpoint {
             try {
                 var tokenPair = manager.refresh(refreshToken);
 
-                // Cookies disabled for cross-domain auth - tokens returned in response body
-                // setTokenCookies(response, tokenPair.accessToken(), tokenPair.refreshToken());
+                // Rotate cookies to the new pair
+                setTokenCookies(request, response, tokenPair.accessToken(), tokenPair.refreshToken());
 
                 return Response.ok(tokenPair).build();
 
@@ -124,16 +135,62 @@ public class TokenEndpoint {
         }
     }
 
+    @POST @Path("/revoke")
+    @Operation(
+        summary = "OAuth 2.1 Token Revocation",
+        description = "Revokes a refresh token (body or httpOnly cookie)."
+    )
+    @APIResponses({
+        @APIResponse(responseCode = "200", description = "Token revoked"),
+        @APIResponse(responseCode = "400", description = "Missing refresh_token")
+    })
+    public Response revoke(
+        @Context HttpServletRequest request,
+        @Context HttpServletResponse response,
+        @FormParam("refresh_token")
+        @Parameter(description = "Refresh token to revoke (optional if cookie present)")
+        String refreshToken
+    ) {
+        if (refreshToken == null && request != null && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refresh_token".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("invalid_request", "Missing refresh_token"))
+                .build();
+        }
+
+        manager.revokeRefreshToken(refreshToken);
+
+        // Clear auth cookies
+        clearCookie(response, "access_token");
+        clearCookie(response, "refresh_token");
+
+        return Response.ok().build();
+    }
+
     /**
      * Sets access and refresh tokens as httpOnly cookies for security.
      * Protects against XSS attacks.
      */
-    private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken) {
+    @SuppressWarnings("unused")
+    private void setTokenCookies(HttpServletRequest request, HttpServletResponse response,
+                                 String accessToken, String refreshToken) {
         // Determine if we're in production (check for HTTPS or production environment variable)
         String env = System.getProperty("app.environment", System.getenv("APP_ENVIRONMENT"));
         boolean isProduction = "production".equalsIgnoreCase(env);
-        // For development, allow HTTP cookies. In production, enforce HTTPS.
-        boolean secureFlag = isProduction;
+        // Prefer actual connection security when present (helps local HTTPS dev)
+        boolean secureFlag = isProduction || (request != null && request.isSecure());
+
+        // For local development (different ports), use Lax instead of Strict
+        // In production with same domain, use Strict for better security
+        String sameSitePolicy = isProduction ? "Strict" : "Lax";
 
         // Access token cookie (30 minutes)
         Cookie accessCookie = new Cookie("access_token", accessToken);
@@ -141,7 +198,7 @@ public class TokenEndpoint {
         accessCookie.setSecure(secureFlag); // HTTPS only in production
         accessCookie.setPath("/");
         accessCookie.setMaxAge(30 * 60); // 30 minutes
-        accessCookie.setAttribute("SameSite", "Strict"); // Strong CSRF protection
+        accessCookie.setAttribute("SameSite", sameSitePolicy);
         response.addCookie(accessCookie);
 
         // Refresh token cookie (7 days)
@@ -150,8 +207,19 @@ public class TokenEndpoint {
         refreshCookie.setSecure(secureFlag); // HTTPS only in production
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-        refreshCookie.setAttribute("SameSite", "Strict"); // Strong CSRF protection
+        refreshCookie.setAttribute("SameSite", sameSitePolicy);
         response.addCookie(refreshCookie);
+    }
+
+    private void clearCookie(HttpServletResponse response, String name) {
+        Cookie cookie = new Cookie(name, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        // Use Lax for development compatibility
+        cookie.setAttribute("SameSite", "Lax");
+        response.addCookie(cookie);
     }
 
     // OAuth 2.0 error response format

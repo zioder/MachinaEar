@@ -19,10 +19,10 @@ import MachinaEar.iam.entities.Client;
 
 import java.util.List;
 
-@Path("/admin/oauth")
+@Path("/admin/clients")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-@Tag(name = "OAuth Admin", description = "OAuth client registration (admin only)")
+@Tag(name = "Client Admin", description = "Client application registration (admin only)")
 public class ClientRegistrationEndpoint {
 
     @Inject PhoenixIAMManager manager;
@@ -38,11 +38,11 @@ public class ClientRegistrationEndpoint {
         public ErrorResponse(String error) { this.error = error; }
     }
 
-    @POST @Path("/clients")
+    @POST
     @RolesAllowed("ADMIN")
     @Operation(
-        summary = "Register OAuth 2.0 Client",
-        description = "Register a new OAuth 2.0 client application with allowed redirect URIs. Admin only."
+        summary = "Register Client Application",
+        description = "Register a new client application with allowed redirect URIs. Admin only."
     )
     @APIResponses({
         @APIResponse(

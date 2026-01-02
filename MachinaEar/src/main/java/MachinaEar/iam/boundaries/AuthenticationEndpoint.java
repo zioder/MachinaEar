@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
@@ -24,10 +25,6 @@ import MachinaEar.iam.controllers.repositories.IdentityRepository;
 import MachinaEar.iam.entities.Identity;
 import MachinaEar.iam.security.Secured;
 import MachinaEar.iam.security.JwtManager;
-
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URLEncoder;
 
 @Path("/auth")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -54,14 +51,13 @@ public class AuthenticationEndpoint {
 
     @POST @Path("/register")
     @Operation(
-        summary = "User registration",
-        description = "Register a new user account with email and password"
+        summary = "OAuth 2.1 User Registration - No Tokens Issued",
+        description = "Register a new user account. Does not issue tokens - use OAuth 2.1 flow to authenticate after registration."
     )
     @APIResponses({
         @APIResponse(
             responseCode = "200",
-            description = "Registration successful",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON)
+            description = "Registration successful - user created, must login via OAuth flow"
         ),
         @APIResponse(
             responseCode = "400",
@@ -69,7 +65,6 @@ public class AuthenticationEndpoint {
         )
     })
     public Response register(
-        @Context HttpServletResponse response,
         @RequestBody(
             description = "Registration credentials",
             required = true,
@@ -81,13 +76,10 @@ public class AuthenticationEndpoint {
                 .entity(new ErrorResponse("email/username/password required")).build();
         }
         try {
-            var pair = manager.register(req.email, req.username, req.password.toCharArray());
-            
-            // Set tokens as httpOnly cookies
-            // Cookies disabled for cross-domain auth - tokens returned in response body
-            // setTokenCookies(response, pair.accessToken(), pair.refreshToken());
-            
-            return Response.ok(pair).build();
+            // Register user only - do NOT issue tokens
+            manager.register(req.email, req.username, req.password.toCharArray());
+
+            return Response.ok(new SuccessResponse("Registration successful. Please login via OAuth flow.")).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage())).build();
@@ -96,18 +88,13 @@ public class AuthenticationEndpoint {
 
     @POST @Path("/login")
     @Operation(
-        summary = "User login",
-        description = "Authenticate user with email and password. Creates session and redirects to /authorize if OAuth flow, otherwise returns tokens."
+        summary = "OAuth 2.1 Login - Create Session Only",
+        description = "Authenticate user with email and password. Creates session for OAuth flow. Use returnTo parameter to redirect after login."
     )
     @APIResponses({
         @APIResponse(
             responseCode = "200",
-            description = "Login successful (non-OAuth flow)",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON)
-        ),
-        @APIResponse(
-            responseCode = "302",
-            description = "Login successful (OAuth flow) - redirects to /authorize"
+            description = "Login successful - returns success message and optional redirect URL"
         ),
         @APIResponse(
             responseCode = "400",
@@ -115,7 +102,7 @@ public class AuthenticationEndpoint {
         ),
         @APIResponse(
             responseCode = "401",
-            description = "Authentication failed - invalid credentials"
+            description = "Authentication failed - invalid credentials or 2FA required"
         )
     })
     public Response login(
@@ -125,64 +112,41 @@ public class AuthenticationEndpoint {
             description = "Login credentials",
             required = true,
             content = @Content(schema = @Schema(implementation = LoginRequest.class))
-        ) LoginRequest req
+        ) LoginRequest req,
+        @QueryParam("returnTo")
+        @Parameter(description = "URL to redirect after successful login")
+        String returnTo
     ) {
         if (req == null || req.email == null || req.password == null) {
-            throw new BadRequestException("email/password required");
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("email/password required")).build();
         }
+
         try {
             var result = manager.login(req.email, req.password.toCharArray(),
                 req.totpCode, req.recoveryCode);
 
-            // If authentication successful, create session with identity ID
-            if (result.authenticated()) {
-                Identity user = identities.findByEmail(req.email)
-                    .orElseThrow(() -> new SecurityException("User not found"));
-
-                HttpSession session = request.getSession(true);
-                session.setAttribute("identity_id", user.getId().toHexString());
-
-                // Set tokens as httpOnly cookies
-                if (result.tokens() != null) {
-                    // Cookies disabled for cross-domain auth - tokens returned in response body
-                    // setTokenCookies(response, result.tokens().accessToken(), result.tokens().refreshToken());
-                }
-
-                // Check if this is part of OAuth flow
-                String oauthClientId = (String) session.getAttribute("oauth_client_id");
-                String oauthRedirectUri = (String) session.getAttribute("oauth_redirect_uri");
-                String oauthCodeChallenge = (String) session.getAttribute("oauth_code_challenge");
-                String oauthCodeChallengeMethod = (String) session.getAttribute("oauth_code_challenge_method");
-                String oauthState = (String) session.getAttribute("oauth_state");
-                String oauthScope = (String) session.getAttribute("oauth_scope");
-
-                if (oauthClientId != null && oauthRedirectUri != null) {
-                    // OAuth flow - redirect to /authorize to complete authorization
-                    try {
-                        StringBuilder authorizeUrl = new StringBuilder(request.getContextPath())
-                            .append("/auth/authorize")
-                            .append("?response_type=code")
-                            .append("&client_id=").append(URLEncoder.encode(oauthClientId, "UTF-8"))
-                            .append("&redirect_uri=").append(URLEncoder.encode(oauthRedirectUri, "UTF-8"))
-                            .append("&code_challenge=").append(URLEncoder.encode(oauthCodeChallenge, "UTF-8"))
-                            .append("&code_challenge_method=").append(URLEncoder.encode(oauthCodeChallengeMethod, "UTF-8"));
-
-                        if (oauthState != null) {
-                            authorizeUrl.append("&state=").append(URLEncoder.encode(oauthState, "UTF-8"));
-                        }
-                        if (oauthScope != null) {
-                            authorizeUrl.append("&scope=").append(URLEncoder.encode(oauthScope, "UTF-8"));
-                        }
-
-                        return Response.seeOther(URI.create(authorizeUrl.toString())).build();
-                    } catch (UnsupportedEncodingException e) {
-                        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
-                    }
-                }
+            // Check if 2FA is required
+            if (result.twoFactorEnabled() && !result.authenticated()) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new TwoFactorResponse("2fa_required", "Two-factor authentication code required"))
+                    .build();
             }
 
-            // Non-OAuth flow - return tokens directly (legacy behavior)
-            return Response.ok(result).build();
+            if (!result.authenticated()) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Invalid credentials")).build();
+            }
+
+            // Authentication successful - create session ONLY (no tokens)
+            Identity user = identities.findByEmail(req.email)
+                .orElseThrow(() -> new SecurityException("User not found"));
+
+            HttpSession session = request.getSession(true);
+            session.setAttribute("identity_id", user.getId().toHexString());
+
+            // Return success with optional returnTo URL for client-side redirect
+            return Response.ok(new LoginSuccessResponse("Login successful", returnTo)).build();
 
         } catch (SecurityException e) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -250,7 +214,7 @@ public class AuthenticationEndpoint {
         accessCookie.setSecure(false); // Allow deletion in development
         accessCookie.setPath("/");
         accessCookie.setMaxAge(0); // Delete cookie
-        accessCookie.setAttribute("SameSite", "Strict");
+        accessCookie.setAttribute("SameSite", "Lax"); // Lax for development compatibility
         response.addCookie(accessCookie);
 
         Cookie refreshCookie = new Cookie("refresh_token", "");
@@ -258,7 +222,7 @@ public class AuthenticationEndpoint {
         refreshCookie.setSecure(false); // Allow deletion in development
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(0); // Delete cookie
-        refreshCookie.setAttribute("SameSite", "Strict");
+        refreshCookie.setAttribute("SameSite", "Lax"); // Lax for development compatibility
         response.addCookie(refreshCookie);
 
         return Response.ok(new SuccessResponse("Logged out successfully")).build();
@@ -277,35 +241,25 @@ public class AuthenticationEndpoint {
         }
     }
 
-    /**
-     * Sets access and refresh tokens as httpOnly cookies for security.
-     * Protects against XSS attacks.
-     */
-    private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken) {
-        // For cross-site cookies (machinaear.me <-> iam.machinaear.me), we need:
-        // - Domain=.machinaear.me (to share across subdomains)
-        // - SameSite=None (to allow cross-site)
-        // - Secure=true (required when SameSite=None)
-        
-        // Access token cookie (30 minutes)
-        Cookie accessCookie = new Cookie("access_token", accessToken);
-        accessCookie.setDomain(".machinaear.me"); // Share across subdomains
-        accessCookie.setHttpOnly(true);  // Prevents JavaScript access
-        accessCookie.setSecure(true); // Required for SameSite=None
-        accessCookie.setPath("/");
-        accessCookie.setMaxAge(30 * 60); // 30 minutes
-        accessCookie.setAttribute("SameSite", "None"); // Allow cross-site cookies
-        response.addCookie(accessCookie);
+    public static class LoginSuccessResponse {
+        public String message;
+        public String returnTo;
 
-        // Refresh token cookie (7 days)
-        Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
-        refreshCookie.setDomain(".machinaear.me"); // Share across subdomains
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(true); // Required for SameSite=None
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-        refreshCookie.setAttribute("SameSite", "None"); // Allow cross-site cookies
-        response.addCookie(refreshCookie);
+        public LoginSuccessResponse(String message, String returnTo) {
+            this.message = message;
+            this.returnTo = returnTo;
+        }
+    }
+
+    public static class TwoFactorResponse {
+        public String error;
+        public String error_description;
+        public boolean twoFactorRequired = true;
+
+        public TwoFactorResponse(String error, String description) {
+            this.error = error;
+            this.error_description = description;
+        }
     }
 
     public static class SuccessResponse {
@@ -313,7 +267,6 @@ public class AuthenticationEndpoint {
         public SuccessResponse(String message) { this.message = message; }
     }
 
-    // Error response DTO
     public static class ErrorResponse {
         public String error;
         public ErrorResponse(String error) { this.error = error; }

@@ -12,7 +12,6 @@ import MachinaEar.iam.entities.AuditLog;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter implements Filter {
 
     // Configuration
+    @SuppressWarnings("unused")
     private static final int MAX_ATTEMPTS_PER_EMAIL = 5;
     private static final int MAX_ATTEMPTS_PER_IP = 20;
     private static final int WINDOW_MINUTES = 15;

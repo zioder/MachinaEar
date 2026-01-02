@@ -9,7 +9,6 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.Filters.and;
 
 import MachinaEar.iam.security.AuthorizationCode;
 

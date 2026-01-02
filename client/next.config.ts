@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
     webpackBuildWorker: false,
   },
 
+  // Proxy API requests to backend to avoid cross-origin cookie issues
+  // This allows cookies set by the backend to be sent on subsequent requests
+  async rewrites() {
+    return [
+      {
+        source: '/api/iam/:path*',
+        destination: 'http://localhost:8080/iam-0.1.0/iam/:path*',
+      },
+    ];
+  },
+
   // Security headers
   async headers() {
     return [
@@ -45,7 +56,7 @@ const nextConfig: NextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob:;
               font-src 'self' data:;
-              connect-src 'self' https://iam.machinaear.me wss://localhost:3000;
+              connect-src 'self' https://iam.machinaear.me http://localhost:8080 https://localhost:8080 wss://localhost:3000;
               frame-ancestors 'none';
               base-uri 'self';
               form-action 'self';

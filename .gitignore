@@ -165,10 +165,6 @@ nul
 fix-frontend.sh
 ec2-setup.sh
 
-# PowerShell scripts
-*.ps1
-
-# Markdown documentation (keep only README.md)
 *.md
 !README.md
 !**/README.md

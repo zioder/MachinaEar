@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AuthService } from '@/lib/auth';
+import { setup2FA, enable2FA as enableTwoFactor, disable2FA as disableTwoFactor, regenerateRecoveryCodes as regenerateCodes } from '@/lib/user';
 import type { TwoFactorSetup } from '@/types/auth';
 
 export function use2FA() {
@@ -12,7 +12,7 @@ export function use2FA() {
     setError(null);
 
     try {
-      const setupData = await AuthService.setup2FA(email);
+      const setupData = await setup2FA(email);
       setSetup(setupData);
       return { success: true, data: setupData };
     } catch (err) {
@@ -34,7 +34,7 @@ export function use2FA() {
     setError(null);
 
     try {
-      await AuthService.enable2FA(email, secret, verificationCode, recoveryCodes);
+      await enableTwoFactor(email, secret, verificationCode, recoveryCodes);
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to enable 2FA';
@@ -50,7 +50,7 @@ export function use2FA() {
     setError(null);
 
     try {
-      await AuthService.disable2FA(email, password);
+      await disableTwoFactor(email, password);
       setSetup(null);
       return { success: true };
     } catch (err) {
@@ -67,7 +67,7 @@ export function use2FA() {
     setError(null);
 
     try {
-      const newCodes = await AuthService.regenerateRecoveryCodes(email, password);
+      const newCodes = await regenerateCodes(email, password);
       if (setup) {
         setSetup({ ...setup, recoveryCodes: newCodes });
       }

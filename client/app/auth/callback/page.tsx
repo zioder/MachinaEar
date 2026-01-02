@@ -33,8 +33,12 @@ function OAuthCallbackContent() {
         // Tokens will be set as httpOnly cookies by the backend
         await exchangeCodeForTokens(code, state);
 
-        // Redirect to home page on success
-        router.replace('/home');
+        // Small delay to ensure cookies are fully processed by the browser
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Force a full page reload to ensure cookies are available
+        // This is more reliable than client-side routing for cookie-based auth
+        window.location.href = '/home';
       } catch (err) {
         console.error('OAuth callback error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');

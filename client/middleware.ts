@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/register", "/auth/callback", "/offline"];
+  const publicRoutes = ["/", "/auth/callback", "/offline"];
 
   // Allow access to public routes, static assets, and API routes
   if (
