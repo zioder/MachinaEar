@@ -122,6 +122,7 @@ public class AuthorizeEndpoint {
 
                 // Build the return URL to continue authorization flow after login
                 // Must include full context path + application path for proper redirect
+                // REST resources are under /iam (ApplicationPath); include it once after context path
                 StringBuilder returnToUrl = new StringBuilder(request.getContextPath())
                     .append("/iam/auth/authorize")
                     .append("?response_type=code")

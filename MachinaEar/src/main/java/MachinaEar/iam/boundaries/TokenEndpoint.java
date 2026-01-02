@@ -188,9 +188,8 @@ public class TokenEndpoint {
         // Prefer actual connection security when present (helps local HTTPS dev)
         boolean secureFlag = isProduction || (request != null && request.isSecure());
 
-        // For local development (different ports), use Lax instead of Strict
-        // In production with same domain, use Strict for better security
-        String sameSitePolicy = isProduction ? "Strict" : "Lax";
+        // Cross-origin SPA needs SameSite=None with Secure; fall back to Lax for insecure dev
+        String sameSitePolicy = secureFlag ? "None" : "Lax";
 
         // Access token cookie (30 minutes)
         Cookie accessCookie = new Cookie("access_token", accessToken);

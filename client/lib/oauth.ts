@@ -110,7 +110,6 @@ export async function refreshAccessToken(): Promise<boolean> {
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: '', // Backend reads from httpOnly cookie
       }).toString(),
       credentials: 'include', // Browser automatically sends httpOnly cookies
     });
