@@ -47,14 +47,16 @@ public class SecurityHeadersFilter implements Filter {
         httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
 
         // Content Security Policy - restrict resource loading
-        // Updated to include production domains and Vercel
+        // Updated to include production domains, Vercel, and Vercel Live
         httpResponse.setHeader("Content-Security-Policy",
             "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live; " +
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data:; " +
-            "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me https://*.vercel.app; " +
+            "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me https://*.vercel.app https://vercel.live; " +
+            "frame-src 'self' https://vercel.live; " +
+            "child-src 'self' https://vercel.live; " +
             "frame-ancestors 'none';"
         );
 
