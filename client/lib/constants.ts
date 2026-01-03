@@ -6,10 +6,7 @@
 // Backend API base URL
 // Prefer explicit env; otherwise default to local dev path that matches the packaged context /iam-0.1.0/iam
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined"
-    ? `${window.location.origin}/iam-0.1.0/iam`
-    : "http://localhost:8080/iam-0.1.0/iam");
+  process.env.NEXT_PUBLIC_API_URL || "https://iam.machinaear.me/iam";
 
 // Frontend base URL
 export const FRONTEND_URL =
