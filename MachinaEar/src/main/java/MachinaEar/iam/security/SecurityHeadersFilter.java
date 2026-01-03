@@ -54,7 +54,7 @@ public class SecurityHeadersFilter implements Filter {
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data:; " +
-            "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me; " +
+            "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me https://*.vercel.app; " +
             "frame-ancestors 'none';"
         );
 

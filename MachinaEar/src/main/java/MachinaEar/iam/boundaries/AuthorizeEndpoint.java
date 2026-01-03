@@ -140,9 +140,18 @@ public class AuthorizeEndpoint {
 
                 // Redirect to server-hosted login page with returnTo parameter (same origin as IAM)
                 // Build absolute URL to avoid path resolution issues
-                String scheme = request.getScheme();
+                // Detect scheme from proxy headers if available
+                String scheme = request.getHeader("X-Forwarded-Proto");
+                if (scheme == null) scheme = request.getScheme();
+                
                 String serverName = request.getServerName();
                 int serverPort = request.getServerPort();
+                
+                // If forwarded, port is usually handled by proxy (443)
+                if (request.getHeader("X-Forwarded-Proto") != null) {
+                    serverPort = "https".equalsIgnoreCase(scheme) ? 443 : 80;
+                }
+
                 String contextPath = request.getContextPath();
 
                 StringBuilder loginUrlBuilder = new StringBuilder();
