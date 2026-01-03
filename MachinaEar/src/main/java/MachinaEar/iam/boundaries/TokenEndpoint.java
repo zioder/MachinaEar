@@ -185,16 +185,22 @@ public class TokenEndpoint {
         // Determine if we're in production (check for HTTPS or production environment variable)
         String env = System.getProperty("app.environment", System.getenv("APP_ENVIRONMENT"));
         boolean isProduction = "production".equalsIgnoreCase(env);
+        
+        // Check X-Forwarded-Proto for Nginx compatibility (important for proper Secure flag behind proxy)
+        String forwardedProto = request != null ? request.getHeader("X-Forwarded-Proto") : null;
+        boolean isSecureRequest = (request != null && request.isSecure()) || "https".equalsIgnoreCase(forwardedProto);
+        
         // Prefer actual connection security when present (helps local HTTPS dev)
-        boolean secureFlag = isProduction || (request != null && request.isSecure());
+        boolean secureFlag = isProduction || isSecureRequest;
 
         // Cross-origin SPA needs SameSite=None with Secure; fall back to Lax for insecure dev
+        // Note: SameSite=None REQUIRES the Secure attribute to be true
         String sameSitePolicy = secureFlag ? "None" : "Lax";
 
         // Access token cookie (30 minutes)
         Cookie accessCookie = new Cookie("access_token", accessToken);
         accessCookie.setHttpOnly(true);  // Prevents JavaScript access
-        accessCookie.setSecure(secureFlag); // HTTPS only in production
+        accessCookie.setSecure(secureFlag); // HTTPS only if secureFlag is true
         accessCookie.setPath("/");
         accessCookie.setMaxAge(30 * 60); // 30 minutes
         accessCookie.setAttribute("SameSite", sameSitePolicy);
@@ -203,7 +209,7 @@ public class TokenEndpoint {
         // Refresh token cookie (7 days)
         Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
         refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(secureFlag); // HTTPS only in production
+        refreshCookie.setSecure(secureFlag); // HTTPS only if secureFlag is true
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
         refreshCookie.setAttribute("SameSite", sameSitePolicy);

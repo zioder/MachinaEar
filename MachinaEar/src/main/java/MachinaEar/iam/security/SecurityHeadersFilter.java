@@ -28,9 +28,11 @@ public class SecurityHeadersFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         // HSTS - Force HTTPS for 1 year, include subdomains
-        // Only enable in production (when using HTTPS)
-        String protocol = request.getScheme();
-        if ("https".equals(protocol)) {
+        // Check X-Forwarded-Proto for Nginx compatibility
+        String forwardedProto = ((jakarta.servlet.http.HttpServletRequest)request).getHeader("X-Forwarded-Proto");
+        String protocol = forwardedProto != null ? forwardedProto : request.getScheme();
+        
+        if ("https".equalsIgnoreCase(protocol)) {
             httpResponse.setHeader("Strict-Transport-Security",
                 "max-age=31536000; includeSubDomains; preload");
         }
@@ -45,14 +47,14 @@ public class SecurityHeadersFilter implements Filter {
         httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
 
         // Content Security Policy - restrict resource loading
-        // Adjust as needed for your frontend requirements
+        // Updated to include production domains and Vercel
         httpResponse.setHeader("Content-Security-Policy",
             "default-src 'self'; " +
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
             "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data:; " +
-            "connect-src 'self' https://localhost:3000 https://localhost:8443; " +
+            "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me; " +
             "frame-ancestors 'none';"
         );
 

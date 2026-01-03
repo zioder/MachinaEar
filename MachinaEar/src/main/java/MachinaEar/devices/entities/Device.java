@@ -18,6 +18,9 @@ public class Device extends RootEntity {
     private Double cpuUsage; // CPU usage percentage
     private Double memoryUsage; // Memory usage percentage
     private String lastError; // Last error message if any
+    private Double anomalyScore;
+    private Instant lastAnomalyDetection;
+    private Boolean isOnline;
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -45,4 +48,13 @@ public class Device extends RootEntity {
 
     public String getLastError() { return lastError; }
     public void setLastError(String lastError) { this.lastError = lastError; }
+
+    public Double getAnomalyScore() { return anomalyScore; }
+    public void setAnomalyScore(Double anomalyScore) { this.anomalyScore = anomalyScore; }
+
+    public Instant getLastAnomalyDetection() { return lastAnomalyDetection; }
+    public void setLastAnomalyDetection(Instant lastAnomalyDetection) { this.lastAnomalyDetection = lastAnomalyDetection; }
+
+    public Boolean getIsOnline() { return isOnline; }
+    public void setIsOnline(Boolean isOnline) { this.isOnline = isOnline; }
 }

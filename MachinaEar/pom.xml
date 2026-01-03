@@ -62,6 +62,13 @@
       <version>3.5.3</version>
     </dependency>
 
+    <!-- Paho MQTT -->
+    <dependency>
+      <groupId>org.eclipse.paho</groupId>
+      <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+      <version>1.2.5</version>
+    </dependency>
+
     <!-- MicroProfile OpenAPI for Swagger UI -->
     <dependency>
       <groupId>org.eclipse.microprofile.openapi</groupId>

@@ -52,11 +52,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: `
               default-src 'self';
-              script-src 'self' 'unsafe-eval' 'unsafe-inline';
+              script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' data: blob:;
+              img-src 'self' data: blob: https://vercel.com;
               font-src 'self' data:;
-              connect-src 'self' https://iam.machinaear.me http://localhost:8080 https://localhost:8080 wss://localhost:3000;
+              connect-src 'self' https://iam.machinaear.me http://localhost:8080 https://localhost:8080 wss://localhost:3000 https://vercel.live https://vitals.vercel-insights.com;
               frame-ancestors 'none';
               base-uri 'self';
               form-action 'self';
