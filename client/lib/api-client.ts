@@ -186,4 +186,14 @@ export class ApiClient {
       lastError,
     });
   }
+
+  // Pairing methods
+  async getAvailableDevices(): Promise<any[]> {
+    return this.get('/devices/available');
+  }
+
+  async pairDevice(pairingCode: string, name: string): Promise<any> {
+    return this.post('/devices/pair', { pairingCode, name });
+  }
 }
+

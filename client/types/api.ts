@@ -20,10 +20,19 @@ export interface Device {
   id?: string;
   name: string;
   type: string;
-  status?: 'normal' | 'abnormal' | 'offline';
+  status?: 'normal' | 'abnormal' | 'offline' | 'pending_pairing';
   lastHeartbeat?: string; // ISO timestamp
   temperature?: number;
   cpuUsage?: number;
   memoryUsage?: number;
   lastError?: string;
+  // Pairing fields
+  pairingCode?: string;
+  deviceToken?: string;
+  mac?: string;
+  anomalyScore?: number;
+  lastAnomalyDetection?: string;
+  isPaired?: boolean;
+  isOnline?: boolean;
+  expiresAt?: string;
 }

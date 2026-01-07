@@ -20,6 +20,13 @@ public class DeviceDTO {
     private String lastError;
     private Instant createdAt;
     private Instant updatedAt;
+    
+    // Pairing fields
+    private String pairingCode;
+    private String deviceToken;
+    private String mac;
+    private Boolean isPaired;
+    private Instant expiresAt;
 
     public DeviceDTO() {
     }
@@ -36,6 +43,13 @@ public class DeviceDTO {
         this.lastError = device.getLastError();
         this.createdAt = device.getCreatedAt();
         this.updatedAt = device.getUpdatedAt();
+        
+        // Pairing fields
+        this.pairingCode = device.getPairingCode();
+        this.deviceToken = device.getDeviceToken();
+        this.mac = device.getMac();
+        this.isPaired = device.getIsPaired();
+        this.expiresAt = device.getExpiresAt();
     }
 
     // Getters and setters
@@ -126,4 +140,46 @@ public class DeviceDTO {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
+    
+    // Pairing getters/setters
+    public String getPairingCode() {
+        return pairingCode;
+    }
+
+    public void setPairingCode(String pairingCode) {
+        this.pairingCode = pairingCode;
+    }
+
+    public String getDeviceToken() {
+        return deviceToken;
+    }
+
+    public void setDeviceToken(String deviceToken) {
+        this.deviceToken = deviceToken;
+    }
+
+    public String getMac() {
+        return mac;
+    }
+
+    public void setMac(String mac) {
+        this.mac = mac;
+    }
+
+    public Boolean getIsPaired() {
+        return isPaired;
+    }
+
+    public void setIsPaired(Boolean isPaired) {
+        this.isPaired = isPaired;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
 }
+

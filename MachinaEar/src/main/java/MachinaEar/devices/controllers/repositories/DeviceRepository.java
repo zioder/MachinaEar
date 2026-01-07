@@ -45,6 +45,14 @@ public class DeviceRepository {
         }
     }
 
+    public Optional<Device> findByPairingCode(String pairingCode) {
+        return Optional.ofNullable(col.find(eq("pairingCode", pairingCode)).first());
+    }
+
+    public List<Device> findAvailableDevices() {
+        return col.find(eq("isPaired", false)).into(new ArrayList<>());
+    }
+
     public Device create(Device device) {
         col.insertOne(device);
         return device;

@@ -6,15 +6,14 @@ import { ApiClient } from '@/lib/api-client';
 import { Device } from '@/types/api';
 import { API_URL } from '@/lib/constants';
 import DeviceList from '@/components/devices/DeviceList';
-import DeviceModal from '@/components/devices/DeviceModal';
-import { PlusIcon } from '@heroicons/react/24/solid';
+import PairingModal from '@/components/devices/PairingModal';
+import { LinkIcon } from '@heroicons/react/24/solid';
 
 export default function DevicesPage() {
     const { user } = useAuth();
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+    const [isPairingModalOpen, setIsPairingModalOpen] = useState(false);
 
     // Initialize API client
     // In a real app, this might be provided via context or hook
@@ -37,21 +36,6 @@ export default function DevicesPage() {
         }
     }, [user]);
 
-    const handleSaveDevice = async (name: string, type: string, id?: string) => {
-        if (id) {
-            // Update existing device
-            await api.updateDevice(id, name, type);
-        } else {
-            // Add new device
-            if (devices.length >= 5) {
-                throw new Error('Maximum number of devices (5) reached.');
-            }
-            await api.addDevice(name, type);
-        }
-        await fetchDevices();
-        setEditingDevice(null);
-    };
-
     const handleDeleteDevice = async (id: string) => {
         if (confirm('Are you sure you want to delete this device?')) {
             try {
@@ -64,23 +48,16 @@ export default function DevicesPage() {
         }
     };
 
-    const handleEditDevice = (device: Device) => {
-        setEditingDevice(device);
-        setIsModalOpen(true);
-    };
-
-    const handleAddDevice = () => {
+    const handlePairDevice = () => {
         if (devices.length >= 5) {
             alert('Maximum number of devices (5) reached.');
             return;
         }
-        setEditingDevice(null);
-        setIsModalOpen(true);
+        setIsPairingModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setEditingDevice(null);
+    const handlePairingComplete = () => {
+        fetchDevices();
     };
 
     return (
@@ -98,31 +75,31 @@ export default function DevicesPage() {
                 <DeviceList
                     devices={devices}
                     onDelete={handleDeleteDevice}
-                    onEdit={handleEditDevice}
                 />
             )}
 
-            {/* Floating Action Button */}
-            <button
-                onClick={handleAddDevice}
-                disabled={devices.length >= 5}
-                className={`fixed bottom-8 right-8 p-4 bg-indigo-600 text-white rounded-full shadow-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 z-40 ${
-                    devices.length >= 5
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-indigo-700'
-                }`}
-                aria-label="Add Device"
-                title={devices.length >= 5 ? 'Maximum number of devices (5) reached.' : 'Add Device'}
-            >
-                <PlusIcon className="h-6 w-6" />
-            </button>
+            {/* Floating Action Button - Add/Pair Device */}
+            <div className="fixed bottom-8 right-8 z-40">
+                <button
+                    onClick={handlePairDevice}
+                    disabled={devices.length >= 5}
+                    className={`p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${devices.length >= 5
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:from-purple-500 hover:to-indigo-500 hover:scale-105'
+                        }`}
+                    aria-label="Add Device"
+                    title={devices.length >= 5 ? 'Maximum devices reached' : 'Add New Device'}
+                >
+                    <LinkIcon className="h-6 w-6" />
+                </button>
+            </div>
 
-            <DeviceModal
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onSave={handleSaveDevice}
-                initialData={editingDevice}
+            <PairingModal
+                isOpen={isPairingModalOpen}
+                onClose={() => setIsPairingModalOpen(false)}
+                onPaired={handlePairingComplete}
             />
         </div>
     );
 }
+

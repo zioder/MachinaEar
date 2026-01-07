@@ -126,36 +126,6 @@ export default function DeviceStatusCard({ device, onClick }: DeviceStatusCardPr
         </div>
       </div>
 
-      {/* Metrics grid */}
-      {(device.cpuUsage !== undefined || device.memoryUsage !== undefined || device.temperature !== undefined) && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {device.cpuUsage !== undefined && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">CPU</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {device.cpuUsage.toFixed(1)}%
-              </div>
-            </div>
-          )}
-          {device.memoryUsage !== undefined && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">RAM</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {device.memoryUsage.toFixed(1)}%
-              </div>
-            </div>
-          )}
-          {device.temperature !== undefined && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Temp</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {device.temperature.toFixed(1)}°C
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Last seen */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-600 dark:text-gray-400">Last seen</span>

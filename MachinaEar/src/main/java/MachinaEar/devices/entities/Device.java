@@ -21,6 +21,13 @@ public class Device extends RootEntity {
     private Double anomalyScore;
     private Instant lastAnomalyDetection;
     private Boolean isOnline;
+    
+    // Pairing fields
+    private String pairingCode;
+    private String deviceToken;
+    private String mac;
+    private Boolean isPaired;
+    private Instant expiresAt;
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -57,4 +64,21 @@ public class Device extends RootEntity {
 
     public Boolean getIsOnline() { return isOnline; }
     public void setIsOnline(Boolean isOnline) { this.isOnline = isOnline; }
+    
+    // Pairing getters/setters
+    public String getPairingCode() { return pairingCode; }
+    public void setPairingCode(String pairingCode) { this.pairingCode = pairingCode; }
+    
+    public String getDeviceToken() { return deviceToken; }
+    public void setDeviceToken(String deviceToken) { this.deviceToken = deviceToken; }
+    
+    public String getMac() { return mac; }
+    public void setMac(String mac) { this.mac = mac; }
+    
+    public Boolean getIsPaired() { return isPaired; }
+    public void setIsPaired(Boolean isPaired) { this.isPaired = isPaired; }
+    
+    public Instant getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
 }
+
