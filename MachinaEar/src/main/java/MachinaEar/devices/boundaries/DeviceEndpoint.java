@@ -134,4 +134,34 @@ public class DeviceEndpoint {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
     }
+
+    @GET
+    @Path("/available")
+    @Operation(summary = "Get available devices", description = "Get a list of devices waiting to be paired")
+    public Response getAvailableDevices() {
+        List<Device> available = manager.getAvailableDevices();
+        List<DeviceDTO> dtos = available.stream()
+                .map(DeviceDTO::new)
+                .collect(Collectors.toList());
+        return Response.ok(dtos).build();
+    }
+
+    public static class PairRequest {
+        public String pairingCode;
+        public String name;
+    }
+
+    @POST
+    @Path("/pair")
+    @Operation(summary = "Pair device", description = "Pair a device using its pairing code")
+    public Response pairDevice(@Context SecurityContext securityContext, PairRequest req) {
+        Identity user = getCurrentUser(securityContext);
+        try {
+            Device device = manager.pairDevice(user.getId(), req.pairingCode, req.name);
+            return Response.ok(new DeviceDTO(device)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
+    }
 }
+

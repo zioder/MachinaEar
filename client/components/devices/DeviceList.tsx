@@ -1,13 +1,12 @@
 import { Device } from '@/types/api';
-import { TrashIcon, PencilIcon, DevicePhoneMobileIcon, ComputerDesktopIcon, ServerIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, DevicePhoneMobileIcon, ComputerDesktopIcon, ServerIcon } from '@heroicons/react/24/outline';
 
 interface DeviceListProps {
     devices: Device[];
     onDelete: (id: string) => void;
-    onEdit: (device: Device) => void;
 }
 
-export default function DeviceList({ devices, onDelete, onEdit }: DeviceListProps) {
+export default function DeviceList({ devices, onDelete }: DeviceListProps) {
     const getIcon = (type: string) => {
         switch (type.toLowerCase()) {
             case 'mobile': return <DevicePhoneMobileIcon className="h-6 w-6" />;
@@ -39,13 +38,6 @@ export default function DeviceList({ devices, onDelete, onEdit }: DeviceListProp
                         </div>
                     </div>
                     <div className="flex space-x-2">
-                        <button
-                            onClick={() => onEdit(device)}
-                            className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                            title="Edit Device"
-                        >
-                            <PencilIcon className="h-5 w-5" />
-                        </button>
                         <button
                             onClick={() => device.id && onDelete(device.id)}
                             className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"

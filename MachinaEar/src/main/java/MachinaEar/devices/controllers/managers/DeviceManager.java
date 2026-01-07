@@ -83,4 +83,62 @@ public class DeviceManager {
         devices.update(device);
         return device;
     }
+
+    // --- Pairing Logic ---
+
+    public Device registerPendingDevice(String pairingCode, String mac, String hostname) {
+        // Check if device with this MAC already exists and is pending
+        // For simplicity, we create a new entry or update existing pending one
+        Device device = devices.findByPairingCode(pairingCode).orElse(new Device());
+        
+        device.setName(hostname);
+        device.setMac(mac);
+        device.setPairingCode(pairingCode);
+        device.setIsPaired(false);
+        device.setStatus("pending_pairing");
+        device.setExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofMinutes(15)));
+        
+        if (device.getId() == null) {
+            return devices.create(device);
+        } else {
+            devices.update(device);
+            return device;
+        }
+    }
+
+    public Device getDeviceByPairingCode(String pairingCode) {
+        return devices.findByPairingCode(pairingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired pairing code"));
+    }
+
+    public List<Device> getAvailableDevices() {
+        return devices.findAvailableDevices();
+    }
+
+    public Device pairDevice(ObjectId userId, String pairingCode, String deviceName) {
+        Device device = devices.findByPairingCode(pairingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Device not found with provided code"));
+
+        if (device.getIsPaired()) {
+            throw new IllegalArgumentException("Device already paired");
+        }
+
+        // Ideally check if expired
+        if (device.getExpiresAt() != null && device.getExpiresAt().isBefore(java.time.Instant.now())) {
+            throw new IllegalArgumentException("Pairing code expired");
+        }
+
+        device.setIdentityId(userId);
+        device.setName(deviceName);
+        device.setIsPaired(true);
+        device.setStatus("normal");
+        device.setPairingCode(null); // Clear code after pairing
+        
+        // Generate a simple device token (in production use JWT)
+        device.setDeviceToken(java.util.UUID.randomUUID().toString());
+        
+        devices.update(device);
+        return device;
+    }
 }
+

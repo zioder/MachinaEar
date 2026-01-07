@@ -1,5 +1,7 @@
 package MachinaEar.iam.boundaries;
 
+import jakarta.annotation.security.PermitAll;
+
 import jakarta.inject.Inject;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,6 +37,12 @@ public class AuthenticationEndpoint {
     @Inject PhoenixIAMManager manager;
     @Inject IdentityRepository identities;
     @Inject JwtManager jwt;
+
+    @GET @Path("/test")
+    @PermitAll
+    public Response test() {
+        return Response.ok("{\"status\":\"ok\", \"message\":\"Backend updated\"}").build();
+    }
 
     public static class LoginRequest {
         public String email;
