@@ -69,7 +69,17 @@ export default function DeviceStatusCard({ device, onClick }: DeviceStatusCardPr
     }
   };
 
-  const statusConfig = getStatusConfig(device.status);
+  // Check if device is offline (no heartbeat in 30 seconds)
+  const isOffline = () => {
+    if (!device.lastHeartbeat) return true;
+    const lastSeen = new Date(device.lastHeartbeat);
+    const now = new Date();
+    const diffMs = now.getTime() - lastSeen.getTime();
+    return diffMs > 30000; // 30 seconds
+  };
+
+  const effectiveStatus = isOffline() ? 'offline' : device.status;
+  const statusConfig = getStatusConfig(effectiveStatus);
 
   const formatLastSeen = (lastHeartbeat?: string) => {
     if (!lastHeartbeat) return 'Never';
