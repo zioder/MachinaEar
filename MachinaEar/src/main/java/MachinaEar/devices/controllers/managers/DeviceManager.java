@@ -92,6 +92,7 @@ public class DeviceManager {
         Device device = devices.findByPairingCode(pairingCode).orElse(new Device());
         
         device.setName(hostname);
+        device.setType("iot"); // Default type for Raspberry Pi devices
         device.setMac(mac);
         device.setPairingCode(pairingCode);
         device.setIsPaired(false);
@@ -130,6 +131,9 @@ public class DeviceManager {
 
         device.setIdentityId(userId);
         device.setName(deviceName);
+        if (device.getType() == null) {
+            device.setType("iot"); // Default type for IoT devices
+        }
         device.setIsPaired(true);
         device.setStatus("normal");
         device.setPairingCode(null); // Clear code after pairing
