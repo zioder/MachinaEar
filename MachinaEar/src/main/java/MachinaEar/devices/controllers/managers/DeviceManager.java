@@ -136,13 +136,42 @@ public class DeviceManager {
         }
         device.setIsPaired(true);
         device.setStatus("normal");
-        device.setPairingCode(null); // Clear code after pairing
+        // Keep pairing code so device can confirm pairing
+        // It will be cleared on first status update
         
         // Generate a simple device token (in production use JWT)
         device.setDeviceToken(java.util.UUID.randomUUID().toString());
         
         devices.update(device);
         return device;
+    }
+
+    /**
+     * Update device status using device token authentication.
+     * Called by Raspberry Pi devices.
+     */
+    public Device updateDeviceStatusByToken(String deviceToken, String status, Double anomalyScore) {
+        Device device = devices.findByDeviceToken(deviceToken)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
+
+        if (!device.getIsPaired()) {
+            throw new IllegalArgumentException("Device not paired");
+        }
+
+        if (status != null) device.setStatus(status);
+        device.setLastHeartbeat(java.time.Instant.now());
+        device.touch();
+
+        devices.update(device);
+        return device;
+    }
+
+    /**
+     * Get device by device token.
+     */
+    public Device getDeviceByToken(String deviceToken) {
+        return devices.findByDeviceToken(deviceToken)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
     }
 }
 

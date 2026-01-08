@@ -33,6 +33,9 @@ export default function DevicesPage() {
     useEffect(() => {
         if (user) {
             fetchDevices();
+            // Auto-refresh every 5 seconds
+            const interval = setInterval(fetchDevices, 5000);
+            return () => clearInterval(interval);
         }
     }, [user]);
 

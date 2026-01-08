@@ -49,6 +49,10 @@ public class DeviceRepository {
         return Optional.ofNullable(col.find(eq("pairingCode", pairingCode)).first());
     }
 
+    public Optional<Device> findByDeviceToken(String deviceToken) {
+        return Optional.ofNullable(col.find(eq("deviceToken", deviceToken)).first());
+    }
+
     public List<Device> findAvailableDevices() {
         return col.find(eq("isPaired", false)).into(new ArrayList<>());
     }

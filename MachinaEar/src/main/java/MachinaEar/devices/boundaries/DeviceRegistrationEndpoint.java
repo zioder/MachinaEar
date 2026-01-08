@@ -58,4 +58,39 @@ public class DeviceRegistrationEndpoint {
             return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
         }
     }
+
+    public static class StatusUpdateRequest {
+        public String status;
+        public Double anomalyScore;
+    }
+
+    @POST
+    @Path("/status")
+    @Operation(summary = "Update device status", description = "Raspberry Pi sends status updates using device token")
+    public Response updateStatus(@HeaderParam("X-Device-Token") String deviceToken, StatusUpdateRequest req) {
+        if (deviceToken == null || deviceToken.isEmpty()) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("{\"error\":\"Missing device token\"}").build();
+        }
+        try {
+            Device device = manager.updateDeviceStatusByToken(deviceToken, req.status, req.anomalyScore);
+            return Response.ok(new DeviceDTO(device)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
+
+    @GET
+    @Path("/device-info")
+    @Operation(summary = "Get device info", description = "Raspberry Pi retrieves its own info using device token")
+    public Response getDeviceInfo(@HeaderParam("X-Device-Token") String deviceToken) {
+        if (deviceToken == null || deviceToken.isEmpty()) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("{\"error\":\"Missing device token\"}").build();
+        }
+        try {
+            Device device = manager.getDeviceByToken(deviceToken);
+            return Response.ok(new DeviceDTO(device)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
 }

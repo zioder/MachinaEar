@@ -46,7 +46,8 @@ print("  MachinaEar VMA309 Agent")
 print("=" * 50)
 
 device_id = get_cfg('device_id')
-is_paired = device_id is not None
+device_token = get_cfg('device_token')
+is_paired = device_id is not None and device_token is not None
 
 if not is_paired:
     code = get_cfg('pairing_code') or gen_code()
@@ -73,7 +74,9 @@ if not is_paired:
                 data = r.json()
                 if data.get('isPaired'):
                     device_id = data.get('id')
+                    device_token = data.get('deviceToken')
                     set_cfg('device_id', device_id)
+                    set_cfg('device_token', device_token)
                     print(f"Paired! Device ID: {device_id}")
                     break
         except Exception as e:
@@ -115,8 +118,9 @@ while True:
                 print(f"[{time.strftime('%H:%M:%S')}] ANOMALY: {count} sounds!")
             
             try:
-                requests.patch(f"{API_URL}/devices/{device_id}/status",
-                    json={"status": status, "anomalyScore": score}, timeout=5)
+                requests.post(f"{API_URL}/device-registration/status",
+                    json={"status": status, "anomalyScore": score},
+                    headers={"X-Device-Token": device_token}, timeout=5)
             except:
                 pass
             
