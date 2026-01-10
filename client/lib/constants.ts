@@ -33,6 +33,10 @@ export const API_ENDPOINTS = {
   AUTHORIZE: `${API_URL}/auth/authorize`,
   TOKEN: `${API_URL}/auth/token`,
 
+  // Google OAuth
+  GOOGLE_OAUTH_LOGIN: `${API_URL}/auth/google/login`,
+  GOOGLE_OAUTH_CALLBACK: `${API_URL}/auth/google/callback`,
+
   // 2FA
   SETUP_2FA: `${API_URL}/auth/2fa/setup`,
   ENABLE_2FA: `${API_URL}/auth/2fa/enable`,

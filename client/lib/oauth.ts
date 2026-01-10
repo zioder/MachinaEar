@@ -48,6 +48,36 @@ export async function initiateOAuthFlow(mode?: 'login' | 'register'): Promise<vo
 }
 
 /**
+ * Initiates Google OAuth flow
+ * Redirects to backend Google OAuth endpoint which then redirects to Google
+ * The backend stores state and original OAuth params to resume flow after Google callback
+ */
+export async function initiateGoogleOAuthFlow(): Promise<void> {
+  // Generate PKCE parameters (for eventual OAuth code exchange)
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  const state = generateState();
+
+  // Store for later use
+  storePKCEParams(codeVerifier, state);
+
+  // Build URL to backend Google OAuth initiator
+  // Pass original OAuth params so backend can resume authorization flow after Google auth
+  const params = new URLSearchParams({
+    client_id: OAUTH_CLIENT_ID,
+    redirect_uri: OAUTH_REDIRECT_URI,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    state: state,
+  });
+
+  const googleOAuthUrl = `${API_ENDPOINTS.GOOGLE_OAUTH_LOGIN}?${params.toString()}`;
+
+  // Redirect to backend (which will redirect to Google)
+  window.location.href = googleOAuthUrl;
+}
+
+/**
  * Exchanges authorization code for tokens
  * Called from the callback page after redirect
  * Note: Tokens are set as httpOnly cookies by the backend

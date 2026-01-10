@@ -1,5 +1,6 @@
 package MachinaEar.iam.entities;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -13,7 +14,7 @@ public class Identity extends RootEntity {
     private String tenantId;      // ObjectId hex string (optionnel au début)
     private String email;
     private String username;
-    private String passwordHash;
+    private String passwordHash;  // Nullable for Google-only accounts
     private boolean active = true;
     private boolean emailVerified = false; // Email verification status
     private Set<Role> roles = new LinkedHashSet<>();
@@ -22,6 +23,12 @@ public class Identity extends RootEntity {
     private boolean twoFactorEnabled = false;
     private String twoFactorSecret;  // Base32 encoded secret for TOTP
     private List<String> recoveryCodes = new ArrayList<>(); // Hashed recovery codes
+
+    // OAuth provider fields (for Google OAuth, GitHub, etc.)
+    private String oauthProvider;        // "google", "github", null for local auth
+    private String oauthProviderId;      // Provider's unique user ID (Google: "sub" claim)
+    private String oauthProviderEmail;   // Email from OAuth provider
+    private Instant lastOAuthSync;       // Last time OAuth data was synced
 
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
@@ -56,4 +63,17 @@ public class Identity extends RootEntity {
 
     public List<String> getRecoveryCodes() { return recoveryCodes; }
     public void setRecoveryCodes(List<String> recoveryCodes) { this.recoveryCodes = recoveryCodes; }
+
+    // OAuth getters and setters
+    public String getOauthProvider() { return oauthProvider; }
+    public void setOauthProvider(String oauthProvider) { this.oauthProvider = oauthProvider; }
+
+    public String getOauthProviderId() { return oauthProviderId; }
+    public void setOauthProviderId(String oauthProviderId) { this.oauthProviderId = oauthProviderId; }
+
+    public String getOauthProviderEmail() { return oauthProviderEmail; }
+    public void setOauthProviderEmail(String oauthProviderEmail) { this.oauthProviderEmail = oauthProviderEmail; }
+
+    public Instant getLastOAuthSync() { return lastOAuthSync; }
+    public void setLastOAuthSync(Instant lastOAuthSync) { this.lastOAuthSync = lastOAuthSync; }
 }
