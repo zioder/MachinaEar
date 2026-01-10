@@ -1,5 +1,6 @@
 package MachinaEar.iam.controllers.managers;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -42,6 +43,7 @@ public class PhoenixIAMManager {
     @Inject RefreshTokenRepository refreshTokens;
     @Inject JwtManager jwt;
     @Inject TotpManager totpManager;
+    @Inject GoogleOAuthManager googleOAuth;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -548,4 +550,49 @@ public class PhoenixIAMManager {
 
     public static record TwoFactorSetup(String secret, String qrCodeUrl, String qrCodeImage,
                                        List<String> recoveryCodes) {}
+
+    public static record GoogleLoginResult(TokenPair tokens, Identity user) {}
+
+    // ==================== Google OAuth Authentication ====================
+
+    /**
+     * Authenticate user with Google OAuth.
+     * Exchanges Google authorization code for user info, finds or creates account,
+     * and generates access/refresh tokens.
+     *
+     * @param googleAuthCode Authorization code from Google callback
+     * @return GoogleLoginResult (tokens + user identity)
+     * @throws IOException if Google API call fails
+     * @throws SecurityException if token validation fails
+     */
+    public GoogleLoginResult loginWithGoogle(String googleAuthCode) {
+        try {
+            // 1. Exchange code for Google user info
+            GoogleOAuthManager.GoogleUserInfo googleUser = googleOAuth.exchangeCodeForUserInfo(googleAuthCode);
+
+            // 2. Find or create Identity (handles account linking)
+            Identity user = googleOAuth.findOrCreateIdentity(googleUser);
+
+            // 3. Ensure emailVerified=true for Google users (redundant but safe)
+            if (!user.isEmailVerified()) {
+                user.setEmailVerified(true);
+                identities.update(user);
+            }
+
+            // 4. Get user roles
+            Set<Role> roles = user.getRoles();
+            if (roles == null || roles.isEmpty()) {
+                roles = new HashSet<>(grants.findRolesByIdentity(user.getId()));
+            }
+
+            // 5. Generate OAuth tokens
+            String accessToken = jwt.generateAccessToken(user, roles, 30);  // 30 minutes
+            String refreshToken = jwt.generateRefreshToken(user, 7);        // 7 days
+
+            return new GoogleLoginResult(new TokenPair(accessToken, refreshToken), user);
+
+        } catch (IOException | java.security.GeneralSecurityException e) {
+            throw new SecurityException("Failed to exchange Google authorization code: " + e.getMessage(), e);
+        }
+    }
 }

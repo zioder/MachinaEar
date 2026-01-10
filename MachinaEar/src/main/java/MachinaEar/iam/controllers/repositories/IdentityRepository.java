@@ -11,6 +11,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Filters.and;
 
 import MachinaEar.iam.entities.Identity;
 
@@ -54,4 +55,15 @@ public class IdentityRepository {
     public void update(Identity i) { col.replaceOne(eq("_id", i.getId()), i); }
 
     public boolean emailExists(String email) { return col.countDocuments(eq("email", email)) > 0; }
+
+    /**
+     * Find identity by OAuth provider and provider ID
+     * Used for Google OAuth authentication
+     */
+    public Optional<Identity> findByOAuthProvider(String provider, String providerId) {
+        Identity i = col.find(
+            and(eq("oauthProvider", provider), eq("oauthProviderId", providerId))
+        ).first();
+        return Optional.ofNullable(i);
+    }
 }
