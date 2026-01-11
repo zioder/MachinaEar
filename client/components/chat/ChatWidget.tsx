@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, MessageCircle, Minimize2, Sparkles, Trash2 } from 'lucide-react';
+import { X, Send, MessageCircle, Minimize2, Sparkles, Trash2, History } from 'lucide-react';
 import { useChat } from '@/hooks/useChat';
 import { ChatMessage } from './ChatMessage';
+import { ConversationHistory } from './ConversationHistory';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -12,7 +13,16 @@ export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
-  const { messages, isLoading, sendMessage, clearMessages } = useChat();
+  const [showHistory, setShowHistory] = useState(false);
+  const { 
+    messages, 
+    isLoading, 
+    currentConversationId, 
+    sendMessage, 
+    clearMessages, 
+    loadConversation,
+    getConversations 
+  } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -46,6 +56,16 @@ export function ChatWidget() {
   const handleClose = () => {
     setIsAnimating(false);
     setTimeout(() => setIsOpen(false), 200);
+  };
+
+  const handleNewConversation = () => {
+    clearMessages();
+    setShowHistory(false);
+  };
+
+  const handleSelectConversation = async (conversationId: string) => {
+    await loadConversation(conversationId);
+    setShowHistory(false);
   };
 
   const suggestedQuestions = [
@@ -89,25 +109,28 @@ export function ChatWidget() {
               </div>
             </div>
             <div className="flex gap-1">
-              {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className={`hover:bg-white/20 rounded-lg p-2 transition-all duration-200 group ${
+                  showHistory ? 'bg-white/30' : ''
+                }`}
+                aria-label="Historique"
+                title="Historique des conversations"
+              >
+                <History size={18} className="group-hover:scale-110 transition-transform" />
+              </button>
+              {messages.length > 0 && !showHistory && (
                 <button
                   type="button"
-                  onClick={clearMessages}
+                  onClick={handleNewConversation}
                   className="hover:bg-white/20 rounded-lg p-2 transition-all duration-200 group"
-                  aria-label="Effacer"
-                  title="Effacer la conversation"
+                  aria-label="Nouvelle conversation"
+                  title="Nouvelle conversation"
                 >
                   <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={handleClose}
-                className="hover:bg-white/20 rounded-lg p-2 transition-all duration-200 group"
-                aria-label="Minimiser"
-              >
-                <Minimize2 size={18} className="group-hover:scale-110 transition-transform" />
-              </button>
               <button
                 type="button"
                 onClick={handleClose}
@@ -119,8 +142,20 @@ export function ChatWidget() {
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
+          {/* Content Area - either history or messages */}
+          {showHistory ? (
+            <div className="flex-1 overflow-hidden p-4 bg-gray-50">
+              <ConversationHistory
+                onSelectConversation={handleSelectConversation}
+                onNewConversation={handleNewConversation}
+                getConversations={getConversations}
+                currentConversationId={currentConversationId}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-gray-50 to-white custom-scrollbar">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-600 animate-fade-in">
                 <div className="relative mb-6">
@@ -218,6 +253,8 @@ export function ChatWidget() {
               </Button>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
     </>

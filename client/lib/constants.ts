@@ -6,7 +6,7 @@
 // Backend API base URL
 // Next.js will replace process.env.NEXT_PUBLIC_API_URL at build time
 // If not set, use local development URL as fallback
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam-0.1.0/iam";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam/iam";
 
 // Frontend base URL
 export const FRONTEND_URL =

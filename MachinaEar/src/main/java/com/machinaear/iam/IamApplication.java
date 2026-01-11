@@ -40,6 +40,8 @@ public class IamApplication extends Application {
         // Add all endpoint classes here
         resources.add(TestEndpoint.class);
         resources.add(ChatEndpoint.class);
+        // Add CORS filter
+        resources.add(CorsFilter.class);
         return resources;
     }
 
