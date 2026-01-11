@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/iam/:path*',
-        destination: 'https://iam.machinaear.me/iam-0.1.0/iam/:path*',
+        destination: 'https://iam.machinaear.me/iam/:path*',
       },
     ];
   },
