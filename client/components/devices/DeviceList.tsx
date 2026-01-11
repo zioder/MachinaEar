@@ -1,5 +1,6 @@
 import { Device } from '@/types/api';
 import { TrashIcon, DevicePhoneMobileIcon, ComputerDesktopIcon, ServerIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { getDeviceEffectiveStatus } from '@/lib/device-status';
 
 interface DeviceListProps {
     devices: Device[];
@@ -16,16 +17,8 @@ export default function DeviceList({ devices, onDelete }: DeviceListProps) {
         }
     };
 
-    const isOffline = (device: Device) => {
-        if (!device.lastHeartbeat) return true;
-        const lastSeen = new Date(device.lastHeartbeat);
-        const now = new Date();
-        return (now.getTime() - lastSeen.getTime()) > 30000;
-    };
-
     const getStatus = (device: Device) => {
-        if (isOffline(device)) return 'offline';
-        return device.status || 'unknown';
+        return getDeviceEffectiveStatus(device);
     };
 
     const getStatusBadge = (device: Device) => {

@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { getDeviceEffectiveStatus } from '@/lib/device-status';
 
 interface DeviceStatusCardProps {
   device: Device;
@@ -69,16 +70,7 @@ export default function DeviceStatusCard({ device, onClick }: DeviceStatusCardPr
     }
   };
 
-  // Check if device is offline (no heartbeat in 30 seconds)
-  const isOffline = () => {
-    if (!device.lastHeartbeat) return true;
-    const lastSeen = new Date(device.lastHeartbeat);
-    const now = new Date();
-    const diffMs = now.getTime() - lastSeen.getTime();
-    return diffMs > 30000; // 30 seconds
-  };
-
-  const effectiveStatus = isOffline() ? 'offline' : device.status;
+  const effectiveStatus = getDeviceEffectiveStatus(device);
   const statusConfig = getStatusConfig(effectiveStatus);
 
   const formatLastSeen = (lastHeartbeat?: string) => {

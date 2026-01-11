@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/iam/:path*',
-        destination: 'http://localhost:8080/iam-0.1.0/iam/:path*',
+        destination: 'https://iam.machinaear.me/iam-0.1.0/iam/:path*',
       },
     ];
   },
@@ -76,6 +76,6 @@ const nextConfig: NextConfig = {
 
 export default withPWA({
   dest: 'public',
-  disable: false, // Enable PWA in both development and production
+  disable: true, // Disable PWA for now to resolve Service Worker crash
   register: true,
 })(nextConfig);

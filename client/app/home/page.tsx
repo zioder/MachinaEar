@@ -9,6 +9,7 @@ import { API_URL } from "@/lib/constants";
 import { Device } from "@/types/api";
 import DeviceStatusCard from "@/components/devices/DeviceStatusCard";
 import { PlusIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { getDeviceEffectiveStatus } from "@/lib/device-status";
 
 export default function HomePage() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -44,10 +45,10 @@ export default function HomePage() {
     if (user) {
       fetchDevices();
       
-      // Auto-refresh every 30 seconds for real-time monitoring
+      // Auto-refresh every 5 seconds for real-time monitoring
       const intervalId = setInterval(() => {
         fetchDevices();
-      }, 30000);
+      }, 5000);
 
       return () => clearInterval(intervalId);
     }
@@ -62,9 +63,11 @@ export default function HomePage() {
   };
 
   const getStatusCounts = () => {
-    const normal = devices.filter(d => d.status === 'normal').length;
-    const abnormal = devices.filter(d => d.status === 'abnormal').length;
-    const offline = devices.filter(d => d.status === 'offline').length;
+    const nowMs = Date.now();
+    const statuses = devices.map((d) => getDeviceEffectiveStatus(d, nowMs));
+    const normal = statuses.filter((s) => s === "normal").length;
+    const abnormal = statuses.filter((s) => s === "abnormal").length;
+    const offline = statuses.filter((s) => s === "offline").length;
     return { normal, abnormal, offline, total: devices.length };
   };
 
