@@ -4,9 +4,9 @@
  */
 
 // Backend API base URL
-// Prefer explicit env; otherwise default to local dev path that matches the packaged context /iam-0.1.0/iam
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://iam.machinaear.me/iam";
+// Next.js will replace process.env.NEXT_PUBLIC_API_URL at build time
+// If not set, use local development URL as fallback
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/iam-0.1.0/iam";
 
 // Frontend base URL
 export const FRONTEND_URL =

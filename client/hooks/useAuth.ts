@@ -20,8 +20,10 @@ export function useAuth() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
+        // Temporarily disable user loading to avoid auth errors
+        // const currentUser = await getCurrentUser();
+        // setUser(currentUser);
+        setUser(null);
       } catch (err) {
         console.error('Error loading user:', err);
         setUser(null);

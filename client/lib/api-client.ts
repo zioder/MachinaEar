@@ -3,6 +3,7 @@
  */
 
 import { parseApiError, NetworkError } from './errors';
+import { API_URL } from './constants';
 
 export interface RequestConfig extends RequestInit {
   timeout?: number;
@@ -197,3 +198,5 @@ export class ApiClient {
   }
 }
 
+// Export a default instance
+export const apiClient = new ApiClient(API_URL);

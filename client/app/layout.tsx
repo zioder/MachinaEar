@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ChatWidget } from "@/components/chat";
 
 export const metadata: Metadata = {
   title: "MachinaEar",
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         {children}
+        <ChatWidget />
       </body>
     </html>
   );

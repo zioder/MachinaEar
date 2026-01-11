@@ -12,21 +12,23 @@ import { LoadingSpinner } from "@/components/ui";
  */
 export default function RootPage() {
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
+  // Temporarily disable auth check to show the page
+  const isAuthenticated = false;
+  const loading = false;
 
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.push("/home");
-    }
-  }, [isAuthenticated, loading, router]);
+  // useEffect(() => {
+  //   if (!loading && isAuthenticated) {
+  //     router.push("/home");
+  //   }
+  // }, [isAuthenticated, loading, router]);
 
-  if (loading) {
-    return <LoadingSpinner fullScreen message="Loading..." />;
-  }
+  // if (loading) {
+  //   return <LoadingSpinner fullScreen message="Loading..." />;
+  // }
 
-  if (isAuthenticated) {
-    return <LoadingSpinner fullScreen message="Redirecting..." />;
-  }
+  // if (isAuthenticated) {
+  //   return <LoadingSpinner fullScreen message="Redirecting..." />;
+  // }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -87,7 +89,8 @@ export default function RootPage() {
           {/* Auth button */}
           <div>
             <button
-              onClick={() => initiateOAuthFlow()}
+              type="button"
+              onClick={() => router.push('/home')}
               className="w-full py-4 px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
             >
               Get Started

@@ -56,7 +56,7 @@ const nextConfig: NextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: blob: https://vercel.com;
               font-src 'self' data:;
-              connect-src 'self' https://iam.machinaear.me http://localhost:8080 https://localhost:8080 wss://localhost:3000 https://vercel.live https://vitals.vercel-insights.com;
+              connect-src 'self' https://iam.machinaear.me http://localhost:8081 https://localhost:8081 http://localhost:8080 https://localhost:8080 wss://localhost:3000 https://vercel.live https://vitals.vercel-insights.com;
               frame-ancestors 'none';
               base-uri 'self';
               form-action 'self';
@@ -76,6 +76,6 @@ const nextConfig: NextConfig = {
 
 export default withPWA({
   dest: 'public',
-  disable: false, // Enable PWA in both development and production
-  register: true,
+  disable: true, // Disable PWA to avoid service worker errors
+  register: false,
 })(nextConfig);

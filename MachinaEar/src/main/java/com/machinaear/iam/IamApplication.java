@@ -6,6 +6,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.annotation.PreDestroy;
 
+import java.util.Set;
+import java.util.HashSet;
+
 import org.eclipse.microprofile.openapi.annotations.OpenAPIDefinition;
 import org.eclipse.microprofile.openapi.annotations.info.Contact;
 import org.eclipse.microprofile.openapi.annotations.info.Info;
@@ -21,31 +24,31 @@ import org.bson.codecs.pojo.PojoCodecProvider;
 
 @ApplicationScoped
 @ApplicationPath("/iam") // Base REST: http://host/.../iam/...
-@OpenAPIDefinition(
-    info = @Info(
-        title = "MachinaEar IAM API",
-        version = "0.1.0",
-        description = "Identity and Access Management API with JWT authentication",
-        contact = @Contact(
-            name = "MachinaEar Team"
-        ),
-        license = @License(
-            name = "Apache 2.0"
-        )
-    ),
-    servers = {
+@OpenAPIDefinition(info = @Info(title = "MachinaEar IAM API", version = "0.1.0", description = "Identity and Access Management API with JWT authentication", contact = @Contact(name = "MachinaEar Team"), license = @License(name = "Apache 2.0")), servers = {
         @Server(url = "https://localhost:8443/iam-0.1.0/iam", description = "Local Development Server (HTTPS)")
-    }
-)
+})
 public class IamApplication extends Application {
 
     private MongoClient client;
 
-    @Produces @ApplicationScoped
+    /**
+     * Explicitly declare resource classes for JAX-RS scanning
+     */
+    @Override
+    public Set<Class<?>> getClasses() {
+        Set<Class<?>> resources = new HashSet<>();
+        // Add all endpoint classes here
+        resources.add(TestEndpoint.class);
+        resources.add(ChatEndpoint.class);
+        return resources;
+    }
+
+    @Produces
+    @ApplicationScoped
     public MongoClient mongoClient() {
         if (client == null) {
             String uri = System.getProperty("MONGODB_URI",
-                    System.getenv().getOrDefault("MONGODB_URI","mongodb://localhost:27017"));
+                    System.getenv().getOrDefault("MONGODB_URI", "mongodb://localhost:27017"));
             CodecRegistry pojoRegistry = fromRegistries(
                     MongoClientSettings.getDefaultCodecRegistry(),
                     fromProviders(PojoCodecProvider.builder().automatic(true).build()));
@@ -58,7 +61,8 @@ public class IamApplication extends Application {
         return client;
     }
 
-    @Produces @ApplicationScoped
+    @Produces
+    @ApplicationScoped
     public MongoDatabase mongoDatabase(MongoClient client) {
         String db = System.getProperty("MONGODB_DB",
                 System.getenv().getOrDefault("MONGODB_DB", "machinaear"));
@@ -66,5 +70,8 @@ public class IamApplication extends Application {
     }
 
     @PreDestroy
-    public void cleanup() { if (client != null) client.close(); }
+    public void cleanup() {
+        if (client != null)
+            client.close();
+    }
 }
