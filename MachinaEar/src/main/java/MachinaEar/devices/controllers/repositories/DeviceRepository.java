@@ -71,4 +71,8 @@ public class DeviceRepository {
     public Optional<Device> findByMac(String mac) {
         return Optional.ofNullable(col.find(eq("mac", mac)).first());
     }
+
+    public Optional<Device> findByDeviceToken(String deviceToken) {
+        return Optional.ofNullable(col.find(eq("deviceToken", deviceToken)).first());
+    }
 }

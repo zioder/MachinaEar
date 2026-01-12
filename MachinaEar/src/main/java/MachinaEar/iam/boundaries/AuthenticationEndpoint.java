@@ -220,8 +220,22 @@ public class AuthenticationEndpoint {
             HttpSession session = request.getSession(true);
             session.setAttribute("identity_id", user.getId().toHexString());
 
+            // Set session cookie with domain=".machinaear.me" to share across subdomains
+            jakarta.ws.rs.core.NewCookie sessionCookie = new jakarta.ws.rs.core.NewCookie(
+                "JSESSIONID", // Use default session cookie name
+                session.getId(),
+                "/",
+                ".machinaear.me",
+                "Session",
+                60 * 60 * 24 * 7, // maxAge: 7 days
+                true, // secure
+                true  // httpOnly
+            );
+
             // Return success with optional returnTo URL for client-side redirect
-            return Response.ok(new LoginSuccessResponse("Login successful", returnTo)).build();
+            return Response.ok(new LoginSuccessResponse("Login successful", returnTo))
+                .cookie(sessionCookie)
+                .build();
 
         } catch (SecurityException e) {
             return Response.status(Response.Status.UNAUTHORIZED)

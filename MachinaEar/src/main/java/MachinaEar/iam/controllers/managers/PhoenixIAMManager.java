@@ -189,6 +189,7 @@ public class PhoenixIAMManager {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         user.setPasswordHash(Argon2Utility.hash(newPassword));
+        user.setEmailVerified(true); // Auto-verify email on password reset
         identities.update(user);
         passwordResets.markAsUsed(token);
 

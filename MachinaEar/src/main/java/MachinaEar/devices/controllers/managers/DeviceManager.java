@@ -172,6 +172,28 @@ public class DeviceManager {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid pairing code"));
     }
 
+    public Device getDeviceByToken(String deviceToken) {
+        return devices.findByDeviceToken(deviceToken)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
+    }
+
+    public Device updateDeviceStatusByToken(String deviceToken, String status, Double anomalyScore) {
+        Device device = devices.findByDeviceToken(deviceToken)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
+
+        if (status != null) {
+            device.setStatus(status);
+        }
+        if (anomalyScore != null) {
+            device.setAnomalyScore(anomalyScore);
+        }
+        device.setLastHeartbeat(Instant.now());
+        device.touch();
+
+        devices.update(device);
+        return device;
+    }
+
     private String generateDeviceToken(String deviceId, String mac) {
         try {
             // Use environment variable or default secret (in production, use proper secret management)

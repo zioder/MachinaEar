@@ -11,7 +11,81 @@
     const API_URL = window.location.origin + contextPath + '/iam';
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
-    const APP_HOME_URL = 'https://machinaear.me/home';
+    // App URLs for OAuth flow
+    const APP_ROOT_URL = 'https://machinaear.me';
+    const OAUTH_CLIENT_ID = 'machina-ear-web';
+    const OAUTH_REDIRECT_URI = APP_ROOT_URL + '/auth/callback';
+
+    // ==================== PKCE Helper Functions ====================
+
+    /**
+     * Generate a cryptographically random code verifier for PKCE
+     */
+    function generateCodeVerifier() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array);
+    }
+
+    /**
+     * Generate SHA-256 code challenge from verifier
+     */
+    async function generateCodeChallenge(verifier) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(verifier);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return base64UrlEncode(new Uint8Array(digest));
+    }
+
+    /**
+     * Base64 URL encode without padding
+     */
+    function base64UrlEncode(array) {
+        const base64 = btoa(String.fromCharCode.apply(null, array));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    /**
+     * Generate random state for CSRF protection
+     */
+    function generateState() {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array);
+    }
+
+    /**
+     * Store PKCE parameters in sessionStorage for the client app to use
+     */
+    function storePKCEParams(verifier, state) {
+        sessionStorage.setItem('pkce_verifier', verifier);
+        sessionStorage.setItem('pkce_state', state);
+    }
+
+    /**
+     * Initiate OAuth flow - redirect to authorize endpoint
+     * This function mirrors the client-side OAuth flow
+     */
+    async function initiateOAuthFlow() {
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        const state = generateState();
+
+        // Store PKCE params for the client app callback to use
+        storePKCEParams(codeVerifier, state);
+
+        const authParams = new URLSearchParams({
+            response_type: 'code',
+            client_id: OAUTH_CLIENT_ID,
+            redirect_uri: OAUTH_REDIRECT_URI,
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256',
+            state: state
+        });
+
+        // Redirect to authorize endpoint (same origin)
+        window.location.href = `${API_URL}/auth/authorize?${authParams.toString()}`;
+    }
 
     // State
     let requires2FA = false;
@@ -436,8 +510,17 @@
 
             // Login successful
             showSuccess('Login successful! Redirecting...');
-            setTimeout(() => {
-                window.location.href = returnTo || APP_HOME_URL;
+            setTimeout(async () => {
+                // If returnTo points to OAuth authorize endpoint, use it (coming from OAuth flow)
+                if (returnTo && returnTo.includes('/auth/authorize')) {
+                    window.location.href = returnTo;
+                } else {
+                    // No returnTo or not an OAuth flow - redirect to app with auto_login flag
+                    // The client app will detect this and initiate OAuth flow
+                    // (We can't initiate OAuth from here because PKCE params would be stored
+                    // in IAM's sessionStorage, not the client app's sessionStorage)
+                    window.location.href = APP_ROOT_URL + '?auto_login=true';
+                }
             }, 500);
 
         } catch (err) {
@@ -732,16 +815,18 @@
             }
 
             // Success
-            showSuccess(result.message || 'Password reset successfully! Redirecting to login...');
+            showSuccess(result.message || 'Password reset successfully! Please sign in with your new password.');
 
             // Clear form
             if (elements.newPassword) elements.newPassword.value = '';
             if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
 
-            // Redirect to login with returnTo to app home page
+            // Show login form and provide instructions
+            // Don't set returnTo here as it gets cleared - user should use the "Sign In" button on the main app
+            // to initiate proper OAuth flow
             setTimeout(() => {
                 showLoginForm();
-                window.history.replaceState({}, document.title, '?returnTo=' + encodeURIComponent(APP_HOME_URL));
+                showInfo('Your password has been reset. Sign in below, or go to the app to sign in with OAuth.');
             }, 2000);
 
         } catch (err) {
