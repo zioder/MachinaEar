@@ -98,6 +98,7 @@ public class PhoenixIAMManager {
         } catch (Exception e) {
             // Log error but don't fail registration
             System.err.println("Failed to send verification email: " + e.getMessage());
+            e.printStackTrace(System.err);
         }
 
         // Generate tokens and return
@@ -107,7 +108,35 @@ public class PhoenixIAMManager {
     }
 
     /**
-     * Verifies user's email with token
+     * Creates a verified account from a pending registration.
+     * Called after the user has verified their email via the 6-digit code.
+     * Password is already hashed.
+     */
+    public void createVerifiedAccount(String email, String username, String passwordHash) {
+        // Double-check email doesn't exist (race condition protection)
+        if (identities.emailExists(email)) {
+            throw new IllegalArgumentException("Email already registered");
+        }
+
+        // Create new identity with verified email
+        Identity user = new Identity();
+        user.setEmail(email);
+        user.setUsername(username);
+        user.setPasswordHash(passwordHash); // Already hashed
+        user.setActive(true);
+        user.setEmailVerified(true); // Already verified via code!
+
+        // Assign default USER role
+        Set<Role> defaultRoles = new HashSet<>();
+        defaultRoles.add(Role.USER);
+        user.setRoles(defaultRoles);
+
+        // Save to database
+        identities.create(user);
+    }
+
+    /**
+     * Verifies user's email with token (legacy flow)
      */
     public boolean verifyEmail(String token) {
         var verification = emailVerifications.findByToken(token)
@@ -170,6 +199,12 @@ public class PhoenixIAMManager {
         Identity user = identities.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown email"));
         if (!user.isActive()) throw new IllegalStateException("User disabled");
+        
+        // Email must be verified for password login
+        if (!user.isEmailVerified()) {
+            throw new SecurityException("Email not verified. Please check your inbox for the verification link.");
+        }
+
         if (!Argon2Utility.verify(user.getPasswordHash(), password))
             throw new SecurityException("Bad credentials");
 
@@ -475,6 +510,11 @@ public class PhoenixIAMManager {
         // Get user identity by ID
         Identity user = identities.findById(authCode.getIdentityId())
                 .orElseThrow(() -> new SecurityException("User not found"));
+
+        // Check if email is verified
+        if (!user.isEmailVerified()) {
+            throw new SecurityException("Email not verified. Please verify your email before using the application.");
+        }
 
         // Get user roles
         Set<Role> roles = user.getRoles();

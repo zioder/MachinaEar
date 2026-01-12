@@ -1,24 +1,26 @@
 package MachinaEar.devices.controllers.repositories;
 
-import MachinaEar.devices.entities.Device;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.bson.types.ObjectId;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.bson.types.ObjectId;
+
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import static com.mongodb.client.model.Filters.eq;
+
+import MachinaEar.devices.entities.Device;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class DeviceRepository {
 
     private MongoCollection<Device> col;
 
-    public DeviceRepository() {}
+    public DeviceRepository() {
+    }
 
     @Inject
     public DeviceRepository(MongoDatabase db) {
@@ -45,18 +47,6 @@ public class DeviceRepository {
         }
     }
 
-    public Optional<Device> findByPairingCode(String pairingCode) {
-        return Optional.ofNullable(col.find(eq("pairingCode", pairingCode)).first());
-    }
-
-    public Optional<Device> findByDeviceToken(String deviceToken) {
-        return Optional.ofNullable(col.find(eq("deviceToken", deviceToken)).first());
-    }
-
-    public List<Device> findAvailableDevices() {
-        return col.find(eq("isPaired", false)).into(new ArrayList<>());
-    }
-
     public Device create(Device device) {
         col.insertOne(device);
         return device;
@@ -68,5 +58,17 @@ public class DeviceRepository {
 
     public void delete(ObjectId id) {
         col.deleteOne(eq("_id", id));
+    }
+
+    public List<Device> findPendingPairing() {
+        return col.find(eq("isPaired", false)).into(new ArrayList<>());
+    }
+
+    public Optional<Device> findByPairingCode(String pairingCode) {
+        return Optional.ofNullable(col.find(eq("pairingCode", pairingCode)).first());
+    }
+
+    public Optional<Device> findByMac(String mac) {
+        return Optional.ofNullable(col.find(eq("mac", mac)).first());
     }
 }

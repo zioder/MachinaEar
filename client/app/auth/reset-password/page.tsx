@@ -51,6 +51,7 @@ function ResetPasswordContent() {
 
             if (response.ok) {
                 setStatus("success");
+                // Redirect to root page where user can sign in via OAuth flow
                 setTimeout(() => router.push("/"), 3000);
             } else {
                 setStatus("error");

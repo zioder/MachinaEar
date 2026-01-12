@@ -2,11 +2,19 @@ package MachinaEar.devices.controllers.managers;
 
 import MachinaEar.devices.controllers.repositories.DeviceRepository;
 import MachinaEar.devices.entities.Device;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class DeviceManager {
@@ -32,7 +40,7 @@ public class DeviceManager {
         device.setCpuUsage(0.0);
         device.setMemoryUsage(0.0);
         device.setTemperature(0.0);
-        
+
         return devices.create(device);
     }
 
@@ -63,8 +71,8 @@ public class DeviceManager {
         devices.delete(device.getId());
     }
 
-    public Device updateDeviceStatus(ObjectId identityId, String deviceId, String status, 
-                                     Double temperature, Double cpuUsage, Double memoryUsage, String lastError) {
+    public Device updateDeviceStatus(ObjectId identityId, String deviceId, String status,
+            Double temperature, Double cpuUsage, Double memoryUsage, String lastError) {
         Device device = devices.findById(deviceId)
                 .orElseThrow(() -> new IllegalArgumentException("Device not found"));
 
@@ -72,11 +80,21 @@ public class DeviceManager {
             throw new SecurityException("Unauthorized access to device");
         }
 
-        if (status != null) device.setStatus(status);
-        if (temperature != null) device.setTemperature(temperature);
-        if (cpuUsage != null) device.setCpuUsage(cpuUsage);
-        if (memoryUsage != null) device.setMemoryUsage(memoryUsage);
-        if (lastError != null) device.setLastError(lastError);
+        if (status != null) {
+            device.setStatus(status);
+        }
+        if (temperature != null) {
+            device.setTemperature(temperature);
+        }
+        if (cpuUsage != null) {
+            device.setCpuUsage(cpuUsage);
+        }
+        if (memoryUsage != null) {
+            device.setMemoryUsage(memoryUsage);
+        }
+        if (lastError != null) {
+            device.setLastError(lastError);
+        }
         device.setLastHeartbeat(java.time.Instant.now());
         device.touch(); // Update timestamp
 
@@ -84,94 +102,104 @@ public class DeviceManager {
         return device;
     }
 
-    // --- Pairing Logic ---
-
     public Device registerPendingDevice(String pairingCode, String mac, String hostname) {
-        // Check if device with this MAC already exists and is pending
-        // For simplicity, we create a new entry or update existing pending one
-        Device device = devices.findByPairingCode(pairingCode).orElse(new Device());
-        
-        device.setName(hostname);
-        device.setType("iot"); // Default type for Raspberry Pi devices
-        device.setMac(mac);
-        device.setPairingCode(pairingCode);
-        device.setIsPaired(false);
-        device.setStatus("pending_pairing");
-        device.setExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofMinutes(15)));
-        
-        if (device.getId() == null) {
-            return devices.create(device);
-        } else {
+        // Check if device already exists with this MAC
+        var existing = devices.findByMac(mac);
+        if (existing.isPresent()) {
+            Device device = existing.get();
+            // Update pairing code and expiration
+            device.setPairingCode(pairingCode);
+            device.setExpiresAt(Instant.now().plus(5, ChronoUnit.MINUTES));
             devices.update(device);
             return device;
         }
-    }
 
-    public Device getDeviceByPairingCode(String pairingCode) {
-        return devices.findByPairingCode(pairingCode)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired pairing code"));
+        // Create new pending device
+        Device device = new Device();
+        device.setMac(mac);
+        device.setName(hostname);
+        device.setType("IoT");
+        device.setPairingCode(pairingCode);
+        device.setStatus("pending_pairing");
+        device.setIsPaired(false);
+        device.setIsOnline(false);
+        device.setExpiresAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+        device.setLastHeartbeat(Instant.now());
+
+        return devices.create(device);
     }
 
     public List<Device> getAvailableDevices() {
-        return devices.findAvailableDevices();
+        List<Device> pending = devices.findPendingPairing();
+        // Filter out expired devices
+        Instant now = Instant.now();
+        return pending.stream()
+                .filter(d -> d.getExpiresAt() != null && d.getExpiresAt().isAfter(now))
+                .toList();
     }
 
-    public Device pairDevice(ObjectId userId, String pairingCode, String deviceName) {
+    public Device pairDevice(ObjectId identityId, String pairingCode, String name) {
         Device device = devices.findByPairingCode(pairingCode)
-                .orElseThrow(() -> new IllegalArgumentException("Device not found with provided code"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid pairing code"));
 
-        if (device.getIsPaired()) {
-            throw new IllegalArgumentException("Device already paired");
-        }
-
-        // Ideally check if expired
-        if (device.getExpiresAt() != null && device.getExpiresAt().isBefore(java.time.Instant.now())) {
+        // Check expiration
+        if (device.getExpiresAt() != null && device.getExpiresAt().isBefore(Instant.now())) {
             throw new IllegalArgumentException("Pairing code expired");
         }
 
-        device.setIdentityId(userId);
-        device.setName(deviceName);
-        if (device.getType() == null) {
-            device.setType("iot"); // Default type for IoT devices
+        // Check device limit for this user
+        if (devices.countByIdentityId(identityId) >= 5) {
+            throw new IllegalArgumentException("Maximum number of devices (5) reached.");
         }
+
+        // Generate device token (JWT)
+        String deviceToken = generateDeviceToken(device.getId().toHexString(), device.getMac());
+
+        // Update device
+        device.setIdentityId(identityId);
+        device.setName(name);
+        device.setDeviceToken(deviceToken);
         device.setIsPaired(true);
         device.setStatus("normal");
-        // Keep pairing code so device can confirm pairing
-        // It will be cleared on first status update
-        
-        // Generate a simple device token (in production use JWT)
-        device.setDeviceToken(java.util.UUID.randomUUID().toString());
-        
-        devices.update(device);
-        return device;
-    }
-
-    /**
-     * Update device status using device token authentication.
-     * Called by Raspberry Pi devices.
-     */
-    public Device updateDeviceStatusByToken(String deviceToken, String status, Double anomalyScore) {
-        Device device = devices.findByDeviceToken(deviceToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
-
-        if (!device.getIsPaired()) {
-            throw new IllegalArgumentException("Device not paired");
-        }
-
-        if (status != null) device.setStatus(status);
-        device.setLastHeartbeat(java.time.Instant.now());
         device.touch();
 
         devices.update(device);
         return device;
     }
 
-    /**
-     * Get device by device token.
-     */
-    public Device getDeviceByToken(String deviceToken) {
-        return devices.findByDeviceToken(deviceToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid device token"));
+    public Device getDeviceByPairingCode(String pairingCode) {
+        return devices.findByPairingCode(pairingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid pairing code"));
+    }
+
+    private String generateDeviceToken(String deviceId, String mac) {
+        try {
+            // Use environment variable or default secret (in production, use proper secret management)
+            String secret = System.getenv("DEVICE_TOKEN_SECRET");
+            if (secret == null || secret.isEmpty()) {
+                secret = "your-256-bit-secret-key-change-in-production-minimum-32-chars";
+            }
+
+            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .subject(deviceId)
+                    .claim("mac", mac)
+                    .claim("type", "device")
+                    .issueTime(new Date())
+                    .expirationTime(new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000)) // 1 year
+                    .jwtID(UUID.randomUUID().toString())
+                    .build();
+
+            SignedJWT signedJWT = new SignedJWT(
+                    new JWSHeader(JWSAlgorithm.HS256),
+                    claimsSet
+            );
+
+            JWSSigner signer = new MACSigner(secret.getBytes());
+            signedJWT.sign(signer);
+
+            return signedJWT.serialize();
+        } catch (JOSEException e) {
+            throw new RuntimeException("Failed to generate device token", e);
+        }
     }
 }
-

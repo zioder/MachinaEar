@@ -3,7 +3,7 @@
  * Handles login, registration, and 2FA flows
  */
 
-(function() {
+(function () {
     'use strict';
 
     // Configuration
@@ -11,10 +11,12 @@
     const API_URL = window.location.origin + contextPath + '/iam';
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
+    const APP_HOME_URL = 'https://machinaear.me/home';
 
     // State
     let requires2FA = false;
     let currentForm = 'login';
+    let pendingVerificationEmail = null; // Email awaiting code verification
 
     // DOM Elements Cache
     const elements = {
@@ -59,6 +61,12 @@
         // Verify email elements
         verifyEmailMessage: null,
         verifyEmailBackBtn: null,
+        // Verification code elements
+        verifyCodeForm: null,
+        verificationCode: null,
+        verifyCodeBtn: null,
+        resendCodeBtn: null,
+        verifyCodeEmail: null,
         // Titles
         formTitle: null,
         formSubtitle: null
@@ -79,11 +87,20 @@
     function checkInitialMode() {
         const mode = params.get('mode');
         const token = params.get('token');
-        
+
         if (token) {
             // Check if this is an email verification or password reset
             const path = window.location.pathname;
-            if (path.includes('verify-email')) {
+            
+            // New: Check mode parameter first (for new URLs)
+            if (mode === 'reset-password') {
+                showResetPasswordForm(token);
+            } else if (mode === 'verify-email') {
+                showVerifyEmailPage();
+                handleEmailVerification(token);
+            }
+            // Legacy: Check path (for old URLs)
+            else if (path.includes('verify-email')) {
                 showVerifyEmailPage();
                 handleEmailVerification(token);
             } else if (path.includes('reset-password')) {
@@ -132,6 +149,11 @@
         elements.resetStrengthLabel = document.getElementById('resetStrengthLabel');
         elements.verifyEmailMessage = document.getElementById('verifyEmailMessage');
         elements.verifyEmailBackBtn = document.getElementById('verifyEmailBackBtn');
+        elements.verifyCodeForm = document.getElementById('verifyCodeForm');
+        elements.verificationCode = document.getElementById('verificationCode');
+        elements.verifyCodeBtn = document.getElementById('verifyCodeBtn');
+        elements.resendCodeBtn = document.getElementById('resendCodeBtn');
+        elements.verifyCodeEmail = document.getElementById('verifyCodeEmail');
         elements.formTitle = document.getElementById('formTitle');
         elements.formSubtitle = document.getElementById('formSubtitle');
     }
@@ -145,17 +167,19 @@
         elements.registerForm?.addEventListener('submit', handleRegister);
         elements.forgotPasswordForm?.addEventListener('submit', handleForgotPassword);
         elements.resetPasswordForm?.addEventListener('submit', handleResetPassword);
-        
+        elements.verifyCodeForm?.addEventListener('submit', handleVerifyCode);
+        elements.resendCodeBtn?.addEventListener('click', handleResendCode);
+
         // Password strength
         elements.registerPassword?.addEventListener('input', handlePasswordInput);
         elements.newPassword?.addEventListener('input', handleResetPasswordInput);
-        
+
         // 2FA toggle
         elements.toggle2FALink?.addEventListener('click', toggle2FASection);
-        
+
         // Forgot password link
         elements.forgotPasswordLink?.addEventListener('click', showForgotPasswordForm);
-        
+
         // Verify email back button
         elements.verifyEmailBackBtn?.addEventListener('click', showLoginForm);
 
@@ -257,6 +281,19 @@
         elements.forgotPasswordForm?.classList.add('hidden');
         elements.resetPasswordForm?.classList.add('hidden');
         elements.verifyEmailPage?.classList.add('hidden');
+        elements.verifyCodeForm?.classList.add('hidden');
+    }
+
+    function showVerificationCodeForm(email) {
+        hideAllForms();
+        elements.verifyCodeForm?.classList.remove('hidden');
+        if (elements.formTitle) elements.formTitle.textContent = 'Verify Your Email';
+        if (elements.formSubtitle) elements.formSubtitle.textContent = 'Enter the 6-digit code sent to your email';
+        if (elements.verifyCodeEmail) elements.verifyCodeEmail.textContent = email;
+        hideAlerts();
+        currentForm = 'verify-code';
+        pendingVerificationEmail = email;
+        elements.verificationCode?.focus();
     }
 
     // ==================== 2FA Functions ====================
@@ -400,7 +437,7 @@
             // Login successful
             showSuccess('Login successful! Redirecting...');
             setTimeout(() => {
-                window.location.href = returnTo || '/home';
+                window.location.href = returnTo || APP_HOME_URL;
             }, 500);
 
         } catch (err) {
@@ -431,7 +468,7 @@
             return;
         }
 
-        setButtonLoading(elements.registerBtn, true, 'Creating account...');
+        setButtonLoading(elements.registerBtn, true, 'Sending verification code...');
 
         try {
             const response = await fetch(`${API_URL}/auth/register`, {
@@ -447,39 +484,118 @@
                 throw new Error(result.error || 'Registration failed');
             }
 
-            // Registration successful - auto login
-            showSuccess('Account created! Signing you in...');
-
-            const loginUrl = `${API_URL}/auth/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
-            const loginResponse = await fetch(loginUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email, password }),
-                redirect: 'manual'
-            });
-
-            if (loginResponse.type === 'opaqueredirect' || loginResponse.status === 302 || loginResponse.status === 303) {
-                const location = loginResponse.headers.get('Location');
-                window.location.href = location || window.location.href;
+            // Check if verification is required (new flow)
+            if (result.verificationRequired) {
+                setButtonLoading(elements.registerBtn, false, 'Create Account');
+                showVerificationCodeForm(result.email || email);
+                showSuccess(result.message || 'Verification code sent! Check your email.');
                 return;
             }
 
-            const loginResult = await loginResponse.json();
-
-            if (!loginResponse.ok) {
-                showSuccess('Account created! Please sign in.');
-                setTimeout(showLoginForm, 1500);
-                return;
-            }
-
+            // Legacy flow (shouldn't happen with new backend)
+            showSuccess('Account created! Please check your email for a verification link.');
+            setButtonLoading(elements.registerBtn, false, 'Account Created');
             setTimeout(() => {
-                window.location.href = returnTo || '/home';
-            }, 500);
+                showLoginForm();
+                showInfo('Please verify your email before signing in.');
+            }, 3000);
 
         } catch (err) {
             showError(err.message || 'Registration failed');
             setButtonLoading(elements.registerBtn, false, 'Create Account');
+        }
+    }
+
+    // ==================== Verify Code Handler ====================
+
+    async function handleVerifyCode(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        const code = elements.verificationCode?.value?.trim();
+
+        if (!code || code.length !== 6) {
+            showError('Please enter the 6-digit verification code');
+            return;
+        }
+
+        if (!pendingVerificationEmail) {
+            showError('No pending registration. Please start over.');
+            showRegisterForm();
+            return;
+        }
+
+        setButtonLoading(elements.verifyCodeBtn, true, 'Verifying...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/verify-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                    email: pendingVerificationEmail, 
+                    code: code 
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Verification failed');
+            }
+
+            // Success - account created
+            showSuccess(result.message || 'Account created successfully! You can now sign in.');
+            pendingVerificationEmail = null;
+            
+            // Redirect to login after a short delay
+            setTimeout(() => {
+                showLoginForm();
+                showSuccess('Your account is ready. Please sign in.');
+            }, 2000);
+
+        } catch (err) {
+            showError(err.message || 'Verification failed');
+            setButtonLoading(elements.verifyCodeBtn, false, 'Verify Code');
+        }
+    }
+
+    // ==================== Resend Code Handler ====================
+
+    async function handleResendCode(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        if (!pendingVerificationEmail) {
+            showError('No pending registration. Please start over.');
+            showRegisterForm();
+            return;
+        }
+
+        setButtonLoading(elements.resendCodeBtn, true, 'Sending...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/resend-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email: pendingVerificationEmail })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to resend code');
+            }
+
+            showSuccess(result.message || 'New verification code sent!');
+            if (elements.verificationCode) elements.verificationCode.value = '';
+            elements.verificationCode?.focus();
+
+        } catch (err) {
+            showError(err.message || 'Failed to resend code');
+        } finally {
+            setButtonLoading(elements.resendCodeBtn, false, 'Resend Code');
         }
     }
 
@@ -514,10 +630,10 @@
 
             // Show success message
             showSuccess(result.message || 'If an account exists with that email, a reset link has been sent.');
-            
+
             // Clear form
             if (elements.forgotEmail) elements.forgotEmail.value = '';
-            
+
             // Show back to login option after a delay
             setTimeout(() => {
                 showInfo('Check your email for the reset link. You can close this page.');
@@ -559,7 +675,7 @@
                 elements.verifyEmailMessage.textContent = '✅ Email verified successfully!';
             }
             showSuccess(result.message || 'Email verified successfully! You can now sign in.');
-            
+
             // Redirect to login after a delay
             setTimeout(() => {
                 showLoginForm();
@@ -617,14 +733,16 @@
 
             // Success
             showSuccess(result.message || 'Password reset successfully! Redirecting to login...');
-            
+
             // Clear form
             if (elements.newPassword) elements.newPassword.value = '';
             if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
-            
-            // Redirect to login after a delay
+
+            // Redirect to login form without returnTo parameter
+            // This allows the user to go through normal OAuth flow
             setTimeout(() => {
                 showLoginForm();
+                window.history.replaceState({}, document.title, window.location.pathname);
             }, 2000);
 
         } catch (err) {
