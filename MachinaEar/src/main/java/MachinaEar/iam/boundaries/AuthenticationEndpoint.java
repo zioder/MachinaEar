@@ -179,6 +179,7 @@ public class AuthenticationEndpoint {
     }
 
     @POST @Path("/forgot-password")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Request password reset", description = "Sends a password reset link to the user's email")
     public Response forgotPassword(ForgotPasswordRequest req) {
         if (req == null || req.email == null) {
@@ -190,6 +191,7 @@ public class AuthenticationEndpoint {
     }
 
     @POST @Path("/reset-password")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Reset password", description = "Resets user password using the token sent via email")
     public Response resetPassword(@QueryParam("token") String token, ResetPasswordRequest req) {
         if (token == null || token.isBlank() || req == null || req.newPassword == null) {
@@ -207,10 +209,14 @@ public class AuthenticationEndpoint {
 
     public static class ForgotPasswordRequest {
         public String email;
+        
+        public ForgotPasswordRequest() {}
     }
 
     public static class ResetPasswordRequest {
         public String newPassword;
+        
+        public ResetPasswordRequest() {}
     }
 
     @GET @Path("/me")

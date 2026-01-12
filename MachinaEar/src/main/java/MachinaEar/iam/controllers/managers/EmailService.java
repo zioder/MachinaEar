@@ -24,10 +24,10 @@ public class EmailService {
 
     @PostConstruct
     public void init() {
-        this.smtpHost = System.getenv("SMTP_HOST");
+        this.smtpHost = getEnvOrDefault("SMTP_HOST", null);
         this.smtpPort = Integer.parseInt(getEnvOrDefault("SMTP_PORT", "587"));
-        this.smtpUser = System.getenv("SMTP_USER");
-        this.smtpPassword = System.getenv("SMTP_PASSWORD");
+        this.smtpUser = getEnvOrDefault("SMTP_USER", null);
+        this.smtpPassword = getEnvOrDefault("SMTP_PASSWORD", null);
         this.fromEmail = getEnvOrDefault("SMTP_FROM_EMAIL", "support@machinaear.me");
         this.fromName = getEnvOrDefault("SMTP_FROM_NAME", "MachinaEar Support");
         this.appUrl = getEnvOrDefault("APP_URL", "https://machinaear.me");
@@ -246,9 +246,13 @@ public class EmailService {
 
     /**
      * Utility to get environment variable with default value
+     * Checks both Environment Variables and System Properties
      */
     private String getEnvOrDefault(String key, String defaultValue) {
         String value = System.getenv(key);
+        if (value == null || value.isBlank()) {
+            value = System.getProperty(key);
+        }
         return (value == null || value.isBlank()) ? defaultValue : value;
     }
 

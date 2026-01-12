@@ -41,6 +41,11 @@ export const API_ENDPOINTS = {
   ENABLE_2FA: `${API_URL}/auth/2fa/enable`,
   DISABLE_2FA: `${API_URL}/auth/2fa/disable`,
   REGENERATE_CODES: `${API_URL}/auth/2fa/regenerate-codes`,
+
+  // Email & Password
+  VERIFY_EMAIL: `${API_URL}/auth/verify-email`,
+  FORGOT_PASSWORD: `${API_URL}/auth/forgot-password`,
+  RESET_PASSWORD: `${API_URL}/auth/reset-password`,
 } as const;
 
 // Session storage keys
