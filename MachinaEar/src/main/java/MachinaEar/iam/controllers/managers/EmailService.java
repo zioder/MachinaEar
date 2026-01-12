@@ -1,48 +1,45 @@
 package MachinaEar.iam.controllers.managers;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.annotation.PostConstruct;
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
 
 @ApplicationScoped
 public class EmailService {
 
     private static final Logger LOGGER = Logger.getLogger(EmailService.class.getName());
-    private static final String RESEND_API_URL = "https://api.resend.com/emails";
 
-    private HttpClient httpClient;
-    private String apiKey;
+    private String smtpHost;
+    private int smtpPort;
+    private String smtpUser;
+    private String smtpPassword;
     private String fromEmail;
     private String fromName;
     private String appUrl;
+    private boolean auth;
+    private boolean starttls;
     private boolean enabled;
 
     @PostConstruct
     public void init() {
-        this.apiKey = System.getenv("RESEND_API_KEY");
-        this.fromEmail = getEnvOrDefault("RESEND_FROM_EMAIL", "noreply@machinaear.com");
-        this.fromName = getEnvOrDefault("RESEND_FROM_NAME", "MachinaEar");
-        this.appUrl = getEnvOrDefault("APP_URL", "http://localhost:8080");
+        this.smtpHost = System.getenv("SMTP_HOST");
+        this.smtpPort = Integer.parseInt(getEnvOrDefault("SMTP_PORT", "587"));
+        this.smtpUser = System.getenv("SMTP_USER");
+        this.smtpPassword = System.getenv("SMTP_PASSWORD");
+        this.fromEmail = getEnvOrDefault("SMTP_FROM_EMAIL", "support@machinaear.me");
+        this.fromName = getEnvOrDefault("SMTP_FROM_NAME", "MachinaEar Support");
+        this.appUrl = getEnvOrDefault("APP_URL", "https://machinaear.me");
+        this.auth = Boolean.parseBoolean(getEnvOrDefault("SMTP_AUTH", "true"));
+        this.starttls = Boolean.parseBoolean(getEnvOrDefault("SMTP_STARTTLS", "true"));
 
-        if (apiKey == null || apiKey.isBlank()) {
-            LOGGER.warning("RESEND_API_KEY not set. Email service is DISABLED. Set environment variable to enable.");
+        if (smtpHost == null || smtpHost.isBlank()) {
+            LOGGER.warning("SMTP_HOST not set. Email service is DISABLED. Set environment variable to enable.");
             this.enabled = false;
         } else {
-            this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
             this.enabled = true;
-            LOGGER.info("EmailService initialized successfully with Resend");
+            LOGGER.info("EmailService initialized successfully with SMTP host: " + smtpHost);
         }
     }
 
@@ -89,43 +86,58 @@ public class EmailService {
     }
 
     /**
-     * Core method to send an email via Resend API
+     * Core method to send an email via SMTP
      */
     private boolean sendEmail(String toEmail, String subject, String htmlContent, String textContent) {
+        java.util.Properties props = new java.util.Properties();
+        props.put("mail.smtp.host", smtpHost);
+        props.put("mail.smtp.port", String.valueOf(smtpPort));
+        props.put("mail.smtp.auth", String.valueOf(auth));
+        
+        if (smtpPort == 465) {
+            props.put("mail.smtp.ssl.enable", "true");
+            props.put("mail.smtp.socketFactory.port", "465");
+            props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+        } else {
+            props.put("mail.smtp.starttls.enable", String.valueOf(starttls));
+        }
+        
+        props.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
+
+        jakarta.mail.Session session = jakarta.mail.Session.getInstance(props, new jakarta.mail.Authenticator() {
+            @Override
+            protected jakarta.mail.PasswordAuthentication getPasswordAuthentication() {
+                return new jakarta.mail.PasswordAuthentication(smtpUser, smtpPassword);
+            }
+        });
+
         try {
-            // Build JSON request body for Resend API
-            JsonObject emailJson = Json.createObjectBuilder()
-                .add("from", fromName + " <" + fromEmail + ">")
-                .add("to", Json.createArrayBuilder().add(toEmail))
-                .add("subject", subject)
-                .add("html", htmlContent)
-                .add("text", textContent)
-                .build();
+            jakarta.mail.Message message = new jakarta.mail.internet.MimeMessage(session);
+            message.setFrom(new jakarta.mail.internet.InternetAddress(fromEmail, fromName));
+            message.setRecipients(jakarta.mail.Message.RecipientType.TO, jakarta.mail.internet.InternetAddress.parse(toEmail));
+            message.setSubject(subject);
 
-            // Create HTTP request
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(RESEND_API_URL))
-                .header("Authorization", "Bearer " + apiKey)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(emailJson.toString()))
-                .build();
+            // Create a multi-part message for HTML and Text
+            jakarta.mail.internet.MimeMultipart multipart = new jakarta.mail.internet.MimeMultipart("alternative");
 
-            // Send request
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            // Text part
+            jakarta.mail.internet.MimeBodyPart textPart = new jakarta.mail.internet.MimeBodyPart();
+            textPart.setText(textContent, "utf-8");
+            multipart.addBodyPart(textPart);
 
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                LOGGER.info("Email sent successfully to: " + toEmail + " (Status: " + response.statusCode() + ")");
-                return true;
-            } else {
-                LOGGER.warning("Failed to send email to: " + toEmail +
-                             " (Status: " + response.statusCode() + ", Body: " + response.body() + ")");
-                return false;
-            }
-        } catch (IOException | InterruptedException e) {
-            LOGGER.log(Level.SEVERE, "Error sending email to: " + toEmail, e);
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            // HTML part
+            jakarta.mail.internet.MimeBodyPart htmlPart = new jakarta.mail.internet.MimeBodyPart();
+            htmlPart.setContent(htmlContent, "text/html; charset=utf-8");
+            multipart.addBodyPart(htmlPart);
+
+            message.setContent(multipart);
+
+            jakarta.mail.Transport.send(message);
+
+            LOGGER.info("Email sent successfully via SMTP to: " + toEmail);
+            return true;
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error sending SMTP email to: " + toEmail, e);
             return false;
         }
     }

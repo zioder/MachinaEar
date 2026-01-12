@@ -162,6 +162,57 @@ public class AuthenticationEndpoint {
         }
     }
 
+    @POST @Path("/verify-email")
+    @Operation(summary = "Verify user email", description = "Verifies user email using the token sent via email")
+    public Response verifyEmail(@QueryParam("token") String token) {
+        if (token == null || token.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Token required")).build();
+        }
+        try {
+            manager.verifyEmail(token);
+            return Response.ok(new SuccessResponse("Email verified successfully")).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    @POST @Path("/forgot-password")
+    @Operation(summary = "Request password reset", description = "Sends a password reset link to the user's email")
+    public Response forgotPassword(ForgotPasswordRequest req) {
+        if (req == null || req.email == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Email required")).build();
+        }
+        manager.requestPasswordReset(req.email);
+        return Response.ok(new SuccessResponse("If an account exists with that email, a reset link has been sent.")).build();
+    }
+
+    @POST @Path("/reset-password")
+    @Operation(summary = "Reset password", description = "Resets user password using the token sent via email")
+    public Response resetPassword(@QueryParam("token") String token, ResetPasswordRequest req) {
+        if (token == null || token.isBlank() || req == null || req.newPassword == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Token and new password required")).build();
+        }
+        try {
+            manager.resetPassword(token, req.newPassword.toCharArray());
+            return Response.ok(new SuccessResponse("Password reset successfully")).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    public static class ForgotPasswordRequest {
+        public String email;
+    }
+
+    public static class ResetPasswordRequest {
+        public String newPassword;
+    }
+
     @GET @Path("/me")
     @Produces(MediaType.APPLICATION_JSON)
     @Secured({"USER", "ADMIN", "MAINTAINER"})
