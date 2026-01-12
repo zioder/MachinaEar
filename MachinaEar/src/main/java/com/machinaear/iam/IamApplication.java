@@ -47,7 +47,43 @@ public class IamApplication extends Application {
 
     @PostConstruct
     public void init() {
+        loadDotEnv();
         seedDatabase();
+    }
+
+    private void loadDotEnv() {
+        // Try to find .env in several locations
+        java.util.List<String> paths = java.util.List.of(
+            ".env",
+            "../.env",
+            "/opt/wildfly/.env",
+            "/opt/wildfly/standalone/configuration/.env"
+        );
+        
+        for (String path : paths) {
+            java.io.File envFile = new java.io.File(path);
+            if (envFile.exists()) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(envFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        line = line.trim();
+                        if (line.isEmpty() || line.startsWith("#")) continue;
+                        int sep = line.indexOf('=');
+                        if (sep > 0) {
+                            String key = line.substring(0, sep).trim();
+                            String value = line.substring(sep + 1).trim();
+                            if (System.getenv(key) == null) {
+                                System.setProperty(key, value);
+                            }
+                        }
+                    }
+                    System.out.println("Loaded environment variables from " + envFile.getAbsolutePath());
+                    return; // Stop after first successful load
+                } catch (java.io.IOException e) {
+                    System.err.println("Failed to load .env file at " + path + ": " + e.getMessage());
+                }
+            }
+        }
     }
 
     private void seedDatabase() {

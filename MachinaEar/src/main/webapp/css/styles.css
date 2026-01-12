@@ -294,6 +294,19 @@ body {
 .space-y-4 > * + * { margin-top: 1rem; }
 .space-y-6 > * + * { margin-top: 1.5rem; }
 
+/* Verification Icon */
+.verification-icon {
+    text-align: center;
+    font-size: 4rem;
+    margin: 1.5rem 0;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
 /* Utility */
 .hidden { display: none !important; }
 .text-center { text-align: center; }

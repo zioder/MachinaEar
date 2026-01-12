@@ -23,6 +23,8 @@ import MachinaEar.iam.controllers.repositories.ClientRepository;
 import MachinaEar.iam.controllers.repositories.AuthorizationCodeRepository;
 import MachinaEar.iam.controllers.repositories.ScopeRepository;
 import MachinaEar.iam.controllers.repositories.RefreshTokenRepository;
+import MachinaEar.iam.controllers.repositories.EmailVerificationRepository;
+import MachinaEar.iam.controllers.repositories.PasswordResetRepository;
 import MachinaEar.iam.entities.Identity;
 import MachinaEar.iam.entities.Client;
 import MachinaEar.iam.entities.Scope;
@@ -44,6 +46,9 @@ public class PhoenixIAMManager {
     @Inject JwtManager jwt;
     @Inject TotpManager totpManager;
     @Inject GoogleOAuthManager googleOAuth;
+    @Inject EmailService emailService;
+    @Inject EmailVerificationRepository emailVerifications;
+    @Inject PasswordResetRepository passwordResets;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -75,6 +80,7 @@ public class PhoenixIAMManager {
         user.setUsername(username);
         user.setPasswordHash(Argon2Utility.hash(password));
         user.setActive(true);
+        user.setEmailVerified(false); // Must verify email
 
         // Assign default USER role to new registrations
         Set<Role> defaultRoles = new HashSet<>();
@@ -84,10 +90,80 @@ public class PhoenixIAMManager {
         // Save to database
         identities.create(user);
 
+        // Send verification email
+        try {
+            MachinaEar.iam.entities.EmailVerification verification = new MachinaEar.iam.entities.EmailVerification(email, user.getId().toHexString());
+            emailVerifications.create(verification);
+            emailService.sendVerificationEmail(email, verification.getToken());
+        } catch (Exception e) {
+            // Log error but don't fail registration
+            System.err.println("Failed to send verification email: " + e.getMessage());
+        }
+
         // Generate tokens and return
         String access = jwt.generateAccessToken(user, defaultRoles, 30); // 30 min
         String refresh = jwt.generateRefreshToken(user, 7);              // 7 days
         return new TokenPair(access, refresh);
+    }
+
+    /**
+     * Verifies user's email with token
+     */
+    public boolean verifyEmail(String token) {
+        var verification = emailVerifications.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
+
+        if (!verification.isValid()) {
+            throw new IllegalArgumentException("Token expired or already used");
+        }
+
+        Identity user = identities.findById(verification.getIdentityId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setEmailVerified(true);
+        identities.update(user);
+        emailVerifications.markAsVerified(token);
+
+        return true;
+    }
+
+    /**
+     * Requests a password reset email
+     */
+    public void requestPasswordReset(String email) {
+        Identity user = identities.findByEmail(email).orElse(null);
+        if (user == null) return; // Silent return for security
+
+        MachinaEar.iam.entities.PasswordReset reset = new MachinaEar.iam.entities.PasswordReset(email, user.getId().toHexString());
+        passwordResets.create(reset);
+        emailService.sendPasswordResetEmail(email, reset.getToken());
+    }
+
+    /**
+     * Resets password with token
+     */
+    public boolean resetPassword(String token, char[] newPassword) {
+        var reset = passwordResets.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid reset token"));
+
+        if (!reset.isValid()) {
+            throw new IllegalArgumentException("Token expired or already used");
+        }
+
+        // Validate password strength
+        PasswordValidator.ValidationResult validation = PasswordValidator.validate(newPassword);
+        if (!validation.isValid()) {
+            throw new IllegalArgumentException(validation.getErrorMessage());
+        }
+
+        Identity user = identities.findById(reset.getIdentityId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setPasswordHash(Argon2Utility.hash(newPassword));
+        identities.update(user);
+        passwordResets.markAsUsed(token);
+
+        return true;
     }
 
     public LoginResult login(String email, char[] password, Integer totpCode, String recoveryCode) {
