@@ -55,10 +55,10 @@ public class GoogleOAuthManager {
     @PostConstruct
     public void init() {
         // Load configuration from environment variables
-        this.clientId = System.getenv("GOOGLE_OAUTH_CLIENT_ID");
-        this.clientSecret = System.getenv("GOOGLE_OAUTH_CLIENT_SECRET");
+        this.clientId = getEnvOrDefault("GOOGLE_OAUTH_CLIENT_ID", null);
+        this.clientSecret = getEnvOrDefault("GOOGLE_OAUTH_CLIENT_SECRET", null);
         this.redirectUri = getEnvOrDefault("GOOGLE_OAUTH_REDIRECT_URI",
-                "http://localhost:8080/iam-0.1.0/iam/auth/google/callback");
+                "https://iam.machinaear.me/iam-0.1.0/iam/auth/google/callback");
 
         // Check if Google OAuth is enabled
         this.enabled = (clientId != null && !clientId.isBlank() &&

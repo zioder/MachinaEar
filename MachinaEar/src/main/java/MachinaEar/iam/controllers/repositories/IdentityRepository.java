@@ -50,7 +50,13 @@ public class IdentityRepository {
         }
     }
 
-    public Identity create(Identity i) { col.insertOne(i); return i; }
+    public Identity create(Identity i) {
+        if (i.getId() == null) {
+            i.setId(new ObjectId());
+        }
+        col.insertOne(i);
+        return i;
+    }
 
     public void update(Identity i) { col.replaceOne(eq("_id", i.getId()), i); }
 

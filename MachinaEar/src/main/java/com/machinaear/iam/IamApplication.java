@@ -19,6 +19,10 @@ import org.bson.codecs.configuration.CodecRegistry;
 import static org.bson.codecs.configuration.CodecRegistries.*;
 import org.bson.codecs.pojo.PojoCodecProvider;
 
+import jakarta.annotation.PostConstruct;
+import MachinaEar.iam.entities.Client;
+import java.util.Arrays;
+
 @ApplicationScoped
 @ApplicationPath("/iam") // Base REST: http://host/.../iam/...
 @OpenAPIDefinition(
@@ -40,6 +44,37 @@ import org.bson.codecs.pojo.PojoCodecProvider;
 public class IamApplication extends Application {
 
     private MongoClient client;
+
+    @PostConstruct
+    public void init() {
+        seedDatabase();
+    }
+
+    private void seedDatabase() {
+        try {
+            MongoDatabase db = mongoDatabase(mongoClient());
+            MongoCollection<Client> clientCol = db.getCollection("oauth_clients", Client.class);
+            
+            String clientId = "machina-ear-web";
+            if (clientCol.countDocuments(com.mongodb.client.model.Filters.eq("clientId", clientId)) == 0) {
+                Client webClient = new Client();
+                webClient.setClientId(clientId);
+                webClient.setClientName("MachinaEar Web Application");
+                webClient.setClientType("public");
+                webClient.setRedirectUris(Arrays.asList(
+                    "http://localhost:3000/auth/callback",
+                    "https://www.machinaear.me/auth/callback",
+                    "https://machinaear.me/auth/callback"
+                ));
+                webClient.setAllowedScopes(Arrays.asList("openid", "email", "profile"));
+                webClient.setActive(true);
+                clientCol.insertOne(webClient);
+                System.out.println("Seeded database with default client: " + clientId);
+            }
+        } catch (Exception e) {
+            System.err.println("Database seeding failed: " + e.getMessage());
+        }
+    }
 
     @Produces @ApplicationScoped
     public MongoClient mongoClient() {
