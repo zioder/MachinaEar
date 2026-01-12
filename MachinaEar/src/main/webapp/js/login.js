@@ -738,11 +738,10 @@
             if (elements.newPassword) elements.newPassword.value = '';
             if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
 
-            // Redirect to login form without returnTo parameter
-            // This allows the user to go through normal OAuth flow
+            // Redirect to login with returnTo to app home page
             setTimeout(() => {
                 showLoginForm();
-                window.history.replaceState({}, document.title, window.location.pathname);
+                window.history.replaceState({}, document.title, '?returnTo=' + encodeURIComponent(APP_HOME_URL));
             }, 2000);
 
         } catch (err) {

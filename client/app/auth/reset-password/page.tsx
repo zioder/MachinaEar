@@ -51,8 +51,12 @@ function ResetPasswordContent() {
 
             if (response.ok) {
                 setStatus("success");
-                // Redirect to root page where user can sign in via OAuth flow
-                setTimeout(() => router.push("/"), 3000);
+                // Redirect to IAM login page with returnTo parameter to go to dashboard after login
+                setTimeout(() => {
+                    const iamLoginUrl = "https://iam.machinaear.me/iam-0.1.0/login.html";
+                    const dashboardUrl = `${window.location.origin}/home`;
+                    window.location.href = `${iamLoginUrl}?returnTo=${encodeURIComponent(dashboardUrl)}`;
+                }, 3000);
             } else {
                 setStatus("error");
                 setError(result.error || "Failed to reset password. The link may have expired.");
