@@ -21,6 +21,9 @@
         // Forms
         loginForm: null,
         registerForm: null,
+        forgotPasswordForm: null,
+        resetPasswordForm: null,
+        verifyEmailPage: null,
         // Alerts
         errorAlert: null,
         infoAlert: null,
@@ -33,6 +36,7 @@
         loginBtn: null,
         twoFactorSection: null,
         toggle2FALink: null,
+        forgotPasswordLink: null,
         // Register form elements
         registerEmail: null,
         registerUsername: null,
@@ -42,6 +46,19 @@
         passwordStrength: null,
         strengthFill: null,
         strengthLabel: null,
+        // Forgot password elements
+        forgotEmail: null,
+        forgotPasswordBtn: null,
+        // Reset password elements
+        newPassword: null,
+        confirmNewPassword: null,
+        resetPasswordBtn: null,
+        resetPasswordStrength: null,
+        resetStrengthFill: null,
+        resetStrengthLabel: null,
+        // Verify email elements
+        verifyEmailMessage: null,
+        verifyEmailBackBtn: null,
         // Titles
         formTitle: null,
         formSubtitle: null
@@ -61,7 +78,18 @@
      */
     function checkInitialMode() {
         const mode = params.get('mode');
-        if (mode === 'register') {
+        const token = params.get('token');
+        
+        if (token) {
+            // Check if this is an email verification or password reset
+            const path = window.location.pathname;
+            if (path.includes('verify-email')) {
+                showVerifyEmailPage();
+                handleEmailVerification(token);
+            } else if (path.includes('reset-password')) {
+                showResetPasswordForm(token);
+            }
+        } else if (mode === 'register') {
             showRegisterForm();
         }
     }
@@ -72,6 +100,9 @@
     function cacheElements() {
         elements.loginForm = document.getElementById('loginForm');
         elements.registerForm = document.getElementById('registerForm');
+        elements.forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        elements.resetPasswordForm = document.getElementById('resetPasswordForm');
+        elements.verifyEmailPage = document.getElementById('verifyEmailPage');
         elements.errorAlert = document.getElementById('errorAlert');
         elements.infoAlert = document.getElementById('infoAlert');
         elements.successAlert = document.getElementById('successAlert');
@@ -82,6 +113,7 @@
         elements.loginBtn = document.getElementById('loginBtn');
         elements.twoFactorSection = document.getElementById('twoFactorSection');
         elements.toggle2FALink = document.getElementById('toggle2FALink');
+        elements.forgotPasswordLink = document.getElementById('forgotPasswordLink');
         elements.registerEmail = document.getElementById('registerEmail');
         elements.registerUsername = document.getElementById('registerUsername');
         elements.registerPassword = document.getElementById('registerPassword');
@@ -90,6 +122,16 @@
         elements.passwordStrength = document.getElementById('passwordStrength');
         elements.strengthFill = document.getElementById('strengthFill');
         elements.strengthLabel = document.getElementById('strengthLabel');
+        elements.forgotEmail = document.getElementById('forgotEmail');
+        elements.forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+        elements.newPassword = document.getElementById('newPassword');
+        elements.confirmNewPassword = document.getElementById('confirmNewPassword');
+        elements.resetPasswordBtn = document.getElementById('resetPasswordBtn');
+        elements.resetPasswordStrength = document.getElementById('resetPasswordStrength');
+        elements.resetStrengthFill = document.getElementById('resetStrengthFill');
+        elements.resetStrengthLabel = document.getElementById('resetStrengthLabel');
+        elements.verifyEmailMessage = document.getElementById('verifyEmailMessage');
+        elements.verifyEmailBackBtn = document.getElementById('verifyEmailBackBtn');
         elements.formTitle = document.getElementById('formTitle');
         elements.formSubtitle = document.getElementById('formSubtitle');
     }
@@ -101,12 +143,21 @@
         // Form submissions
         elements.loginForm?.addEventListener('submit', handleLogin);
         elements.registerForm?.addEventListener('submit', handleRegister);
+        elements.forgotPasswordForm?.addEventListener('submit', handleForgotPassword);
+        elements.resetPasswordForm?.addEventListener('submit', handleResetPassword);
         
         // Password strength
         elements.registerPassword?.addEventListener('input', handlePasswordInput);
+        elements.newPassword?.addEventListener('input', handleResetPasswordInput);
         
         // 2FA toggle
         elements.toggle2FALink?.addEventListener('click', toggle2FASection);
+        
+        // Forgot password link
+        elements.forgotPasswordLink?.addEventListener('click', showForgotPasswordForm);
+        
+        // Verify email back button
+        elements.verifyEmailBackBtn?.addEventListener('click', showLoginForm);
 
         // Form toggle links
         document.querySelectorAll('[data-action="show-login"]').forEach(el => {
@@ -152,21 +203,60 @@
     // ==================== Form Toggle Functions ====================
 
     function showLoginForm() {
+        hideAllForms();
         elements.loginForm?.classList.remove('hidden');
-        elements.registerForm?.classList.add('hidden');
         if (elements.formTitle) elements.formTitle.textContent = 'Sign In';
         if (elements.formSubtitle) elements.formSubtitle.textContent = 'Enter your credentials to continue';
         hideAlerts();
         currentForm = 'login';
+        // Clear URL parameters
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     function showRegisterForm() {
-        elements.loginForm?.classList.add('hidden');
+        hideAllForms();
         elements.registerForm?.classList.remove('hidden');
         if (elements.formTitle) elements.formTitle.textContent = 'Create Account';
         if (elements.formSubtitle) elements.formSubtitle.textContent = 'Fill in your details to get started';
         hideAlerts();
         currentForm = 'register';
+    }
+
+    function showForgotPasswordForm() {
+        hideAllForms();
+        elements.forgotPasswordForm?.classList.remove('hidden');
+        if (elements.formTitle) elements.formTitle.textContent = 'Reset Password';
+        if (elements.formSubtitle) elements.formSubtitle.textContent = 'Enter your email to receive a reset link';
+        hideAlerts();
+        currentForm = 'forgot-password';
+    }
+
+    function showResetPasswordForm(token) {
+        hideAllForms();
+        elements.resetPasswordForm?.classList.remove('hidden');
+        if (elements.formTitle) elements.formTitle.textContent = 'Set New Password';
+        if (elements.formSubtitle) elements.formSubtitle.textContent = 'Choose a strong password for your account';
+        hideAlerts();
+        currentForm = 'reset-password';
+        // Store token for form submission
+        elements.resetPasswordForm.dataset.token = token;
+    }
+
+    function showVerifyEmailPage() {
+        hideAllForms();
+        elements.verifyEmailPage?.classList.remove('hidden');
+        if (elements.formTitle) elements.formTitle.textContent = 'Email Verification';
+        if (elements.formSubtitle) elements.formSubtitle.textContent = 'Please wait while we verify your email';
+        hideAlerts();
+        currentForm = 'verify-email';
+    }
+
+    function hideAllForms() {
+        elements.loginForm?.classList.add('hidden');
+        elements.registerForm?.classList.add('hidden');
+        elements.forgotPasswordForm?.classList.add('hidden');
+        elements.resetPasswordForm?.classList.add('hidden');
+        elements.verifyEmailPage?.classList.add('hidden');
     }
 
     // ==================== 2FA Functions ====================
@@ -223,6 +313,22 @@
             }
         } else {
             elements.passwordStrength?.classList.add('hidden');
+        }
+    }
+
+    function handleResetPasswordInput(e) {
+        const password = e.target.value;
+        if (password.length > 0) {
+            elements.resetPasswordStrength?.classList.remove('hidden');
+            const strength = checkPasswordStrength(password);
+            if (elements.resetStrengthFill) {
+                elements.resetStrengthFill.className = 'password-strength-fill strength-' + strength.level;
+            }
+            if (elements.resetStrengthLabel) {
+                elements.resetStrengthLabel.textContent = strength.text;
+            }
+        } else {
+            elements.resetPasswordStrength?.classList.add('hidden');
         }
     }
 
@@ -377,6 +483,156 @@
         }
     }
 
+    // ==================== Forgot Password Handler ====================
+
+    async function handleForgotPassword(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        const email = elements.forgotEmail?.value;
+
+        if (!email) {
+            showError('Please enter your email address');
+            return;
+        }
+
+        setButtonLoading(elements.forgotPasswordBtn, true, 'Sending...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to send reset email');
+            }
+
+            // Show success message
+            showSuccess(result.message || 'If an account exists with that email, a reset link has been sent.');
+            
+            // Clear form
+            if (elements.forgotEmail) elements.forgotEmail.value = '';
+            
+            // Show back to login option after a delay
+            setTimeout(() => {
+                showInfo('Check your email for the reset link. You can close this page.');
+            }, 2000);
+
+        } catch (err) {
+            showError(err.message || 'Failed to send reset email');
+        } finally {
+            setButtonLoading(elements.forgotPasswordBtn, false, 'Send Reset Link');
+        }
+    }
+
+    // ==================== Email Verification Handler ====================
+
+    async function handleEmailVerification(token) {
+        if (!token) {
+            showError('Verification token is missing');
+            if (elements.verifyEmailMessage) {
+                elements.verifyEmailMessage.textContent = '❌ Verification failed - invalid token';
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/auth/verify-email?token=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Email verification failed');
+            }
+
+            // Success
+            if (elements.verifyEmailMessage) {
+                elements.verifyEmailMessage.textContent = '✅ Email verified successfully!';
+            }
+            showSuccess(result.message || 'Email verified successfully! You can now sign in.');
+            
+            // Redirect to login after a delay
+            setTimeout(() => {
+                showLoginForm();
+            }, 3000);
+
+        } catch (err) {
+            if (elements.verifyEmailMessage) {
+                elements.verifyEmailMessage.textContent = '❌ Verification failed';
+            }
+            showError(err.message || 'Email verification failed');
+        }
+    }
+
+    // ==================== Reset Password Handler ====================
+
+    async function handleResetPassword(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        const token = elements.resetPasswordForm?.dataset.token;
+        const newPassword = elements.newPassword?.value;
+        const confirmNewPassword = elements.confirmNewPassword?.value;
+
+        // Client-side validation
+        if (!token) {
+            showError('Reset token is missing');
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            showError('Passwords do not match');
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            showError('Password must be at least 8 characters');
+            return;
+        }
+
+        setButtonLoading(elements.resetPasswordBtn, true, 'Resetting password...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/reset-password?token=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ newPassword })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Password reset failed');
+            }
+
+            // Success
+            showSuccess(result.message || 'Password reset successfully! Redirecting to login...');
+            
+            // Clear form
+            if (elements.newPassword) elements.newPassword.value = '';
+            if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
+            
+            // Redirect to login after a delay
+            setTimeout(() => {
+                showLoginForm();
+            }, 2000);
+
+        } catch (err) {
+            showError(err.message || 'Password reset failed');
+            setButtonLoading(elements.resetPasswordBtn, false, 'Reset Password');
+        }
+    }
+
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -388,7 +644,8 @@
     window.MachinaEarLogin = {
         showLoginForm,
         showRegisterForm,
-        toggle2FASection
+        toggle2FASection,
+        showForgotPasswordForm
     };
 
 })();
