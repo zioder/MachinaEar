@@ -168,3 +168,10 @@ ec2-setup.sh
 *.md
 !README.md
 !**/README.md
+
+*.ps1
+*.bat
+
+googlecredentials.json
+
+
