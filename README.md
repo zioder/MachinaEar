@@ -18,16 +18,15 @@
 
 MachinaEar is an enterprise-grade predictive maintenance system designed specifically for small-scale industrial environments. By leveraging AI-powered anomaly detection on vibration and acoustic data, MachinaEar enables proactive maintenance strategies that minimize downtime and reduce repair costs.
 
-The platform combines edge computing (Raspberry Pi 5), cloud-based machine learning, and a modern Progressive Web App to deliver real-time machine health insights directly to users' devices.
+The platform combines edge computing (Raspberry Pi 4), cloud-based machine learning, and a modern Progressive Web App to deliver real-time machine health insights directly to users' devices.
 
 ### Key Features
 
 - 🔊 **Real-time Anomaly Detection** - Continuous 24/7 monitoring using AI models
 - 📱 **Progressive Web App** - Cross-platform mobile & desktop support (iOS, Android, Windows, macOS, Linux)
-- 🤖 **AI-Powered Chatbot** - Intelligent assistant with conversation history and device data access
 - 🔐 **OAuth 2.1 Security** - Enterprise-grade authentication with PKCE & refresh token rotation
 - 🔒 **Two-Factor Authentication (2FA)** - TOTP-based security with recovery codes
-- 📊 **Edge Computing** - On-device ML inference on Raspberry Pi 5 using TensorFlow Lite
+- 📊 **Edge Computing** - On-device ML inference on Raspberry Pi 4 using TensorFlow Lite
 - 🔄 **Automated Model Retraining** - CI/CD pipeline with MLflow for continuous improvement
 - 💬 **MQTT Integration** - Real-time device communication and data streaming
 
@@ -65,12 +64,12 @@ MachinaEar follows a modern three-tier architecture:
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    DATA LAYER                               │
-│      MongoDB (Users, Devices, Conversations, Tokens)        │
+│         MongoDB (Users, Devices, Tokens)                    │
 └─────────────────────────────────────────────────────────────┘
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    EDGE DEVICES (IoT)                       │
-│  Raspberry Pi 5 + TensorFlow Lite + MQTT + Sensors         │
+│  Raspberry Pi 4 + TensorFlow Lite + MQTT + Sensors         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,6 +78,7 @@ MachinaEar follows a modern three-tier architecture:
 ## 🛠 Technology Stack
 
 ### Frontend (Client)
+
 - **Framework:** Next.js 15.0 with React 19
 - **Language:** TypeScript 5
 - **Styling:** TailwindCSS 3.4
@@ -88,6 +88,7 @@ MachinaEar follows a modern three-tier architecture:
 - **Authentication:** JWT with OAuth 2.1 + PKCE
 
 ### Backend (Server)
+
 - **Framework:** Jakarta EE 10 (JAX-RS, CDI, EJB)
 - **Application Server:** WildFly
 - **Language:** Java 21
@@ -99,14 +100,16 @@ MachinaEar follows a modern three-tier architecture:
 - **API Documentation:** MicroProfile OpenAPI (Swagger)
 
 ### Machine Learning (Edge & Cloud)
+
 - **Framework:** PyTorch Lightning
 - **Model Architecture:** 3-layer CNN Autoencoder
 - **Feature Extraction:** Mel Spectrograms (librosa)
-- **Edge Deployment:** TensorFlow Lite on Raspberry Pi 5
+- **Edge Deployment:** TensorFlow Lite on Raspberry Pi 4
 - **MLOps:** MLflow for experiment tracking
 - **CI/CD:** GitHub Actions
 
 ### DevOps & Infrastructure
+
 - **Version Control:** Git + GitHub
 - **CI/CD:** GitHub Actions
 - **Deployment:** Docker-ready, WildFly containers
@@ -126,7 +129,6 @@ MachinaEar/
 │   │   ├── settings/                # User settings & 2FA
 │   │   └── offline/                 # Offline fallback
 │   ├── components/                  # Reusable React components
-│   │   ├── chat/                    # AI Chatbot components
 │   │   ├── devices/                 # Device UI components
 │   │   ├── 2fa/                     # Two-factor authentication
 │   │   └── ui/                      # Base UI components
@@ -151,7 +153,7 @@ MachinaEar/
 │   │   │   ├── entities/            # MongoDB entities
 │   │   │   └── security/            # Security utilities
 │   │   ├── devices/                 # IoT device management
-│   │   ├── chat/                    # AI Chatbot module
+
 │   │   └── mqtt/                    # MQTT client service
 │   ├── src/main/webapp/
 │   │   ├── WEB-INF/                 # Web app configuration
@@ -179,9 +181,7 @@ MachinaEar/
 │   └── requirements.txt             # Python dependencies
 │
 ├── docs/                            # Documentation
-│   ├── ScopeStatement.md            # Project scope & business model
-│   ├── ChatbotArchitecture.md       # Chatbot implementation details
-│   └── ChatbotMigration.md          # Chatbot migration guide
+│   └── ScopeStatement.md            # Project scope & business model
 │
 ├── scripts/                         # Deployment & utility scripts
 │   ├── deploy-backend-code.js       # Backend deployment
@@ -233,25 +233,27 @@ MachinaEar implements **OAuth 2.1** as the primary authentication protocol with 
 
 ### Key Security Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/oauth/login` | POST | OAuth login with credentials |
-| `/auth/authorize` | GET | Authorization endpoint (code generation) |
-| `/auth/token` | POST | Token endpoint (code exchange & refresh) |
-| `/auth/register` | POST | User registration |
-| `/auth/logout` | POST | Logout & token revocation |
-| `/auth/2fa/setup` | POST | Generate 2FA QR code |
-| `/auth/2fa/verify` | POST | Verify TOTP code |
-| `/auth/2fa/recovery` | POST | Use recovery code |
+| Endpoint             | Method | Description                              |
+| -------------------- | ------ | ---------------------------------------- |
+| `/auth/oauth/login`  | POST   | OAuth login with credentials             |
+| `/auth/authorize`    | GET    | Authorization endpoint (code generation) |
+| `/auth/token`        | POST   | Token endpoint (code exchange & refresh) |
+| `/auth/register`     | POST   | User registration                        |
+| `/auth/logout`       | POST   | Logout & token revocation                |
+| `/auth/2fa/setup`    | POST   | Generate 2FA QR code                     |
+| `/auth/2fa/verify`   | POST   | Verify TOTP code                         |
+| `/auth/2fa/recovery` | POST   | Use recovery code                        |
 
 ### Security Implementation Files
 
 #### Frontend
+
 - [pkce.ts](client/lib/pkce.ts) - PKCE code generation
 - [oauth.ts](client/lib/oauth.ts) - OAuth flow orchestration
 - [auth/callback/page.tsx](client/app/auth/callback/page.tsx) - Callback handler
 
 #### Backend
+
 - `PhoenixIAMManager.java` - Token rotation & validation
 - `RefreshTokenRepository.java` - Secure token storage
 - `OAuth*Boundary.java` - REST endpoints
@@ -288,7 +290,7 @@ Output: Reconstructed Spectrogram
 ### Feature Extraction
 
 - **Input:** Raw audio WAV files from sensors
-- **Preprocessing:** 
+- **Preprocessing:**
   - FFT with window size 1024, hop length 512
   - 128 mel frequency bands
   - Power normalization (power=2.0)
@@ -319,7 +321,7 @@ fit:
 
 ### Edge Deployment
 
-The trained PyTorch model is converted to **TensorFlow Lite** for efficient inference on Raspberry Pi 5:
+The trained PyTorch model is converted to **TensorFlow Lite** for efficient inference on Raspberry Pi 4:
 
 ```bash
 # Model conversion
@@ -344,16 +346,19 @@ scp model.tflite pi@raspberrypi:/home/pi/machinaear/models/
 ### Prerequisites
 
 #### Backend Requirements
+
 - **Java Development Kit (JDK):** 21 or higher
 - **Apache Maven:** 3.8+
 - **WildFly Application Server:** 27+ (Jakarta EE 10 compatible)
 - **MongoDB:** 4.11+ (local or cloud instance)
 
 #### Frontend Requirements
+
 - **Node.js:** 16.x or higher
 - **npm:** 8.x or higher
 
 #### Machine Learning Requirements (Optional)
+
 - **Python:** 3.8 - 3.11
 - **pip:** Latest version
 - **CUDA:** 11.x+ (for GPU training, optional)
@@ -465,7 +470,6 @@ MachinaEar uses the following MongoDB collections:
 - `users` - User accounts & authentication
 - `refresh_tokens` - OAuth refresh tokens
 - `devices` - IoT device registry
-- `chat_conversations` - Chatbot conversation history
 - `recovery_codes` - 2FA recovery codes
 - `totp_secrets` - 2FA TOTP secrets
 
@@ -516,16 +520,6 @@ PUT    /api/devices/{id}            # Update device
 DELETE /api/devices/{id}            # Remove device
 GET    /api/devices/{id}/status     # Get device status
 GET    /api/devices/{id}/data       # Get sensor data
-```
-
-#### Chatbot
-
-```http
-GET    /api/chat/conversations              # List all conversations
-POST   /api/chat/conversations              # Create new conversation
-GET    /api/chat/conversations/{id}         # Get conversation details
-POST   /api/chat/conversations/{id}/message # Send message
-DELETE /api/chat/conversations/{id}         # Archive conversation
 ```
 
 ### Authentication
