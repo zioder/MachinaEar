@@ -160,7 +160,9 @@ public class DeviceManager {
         device.setName(name);
         device.setDeviceToken(deviceToken);
         device.setIsPaired(true);
+        device.setIsOnline(true);  // Device is online when it gets paired
         device.setStatus("normal");
+        device.setLastHeartbeat(Instant.now());  // Set initial heartbeat
         device.touch();
 
         devices.update(device);
@@ -187,6 +189,7 @@ public class DeviceManager {
         if (anomalyScore != null) {
             device.setAnomalyScore(anomalyScore);
         }
+        device.setIsOnline(true);  // Mark device as online when it sends status
         device.setLastHeartbeat(Instant.now());
         device.touch();
 
