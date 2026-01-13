@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - MachinaEar</title>
     <link rel="stylesheet" href="css/styles.css">
+    <!-- ALTCHA Widget (hosted locally to avoid CSP issues) -->
+    <script async defer src="js/altcha.min.js" type="module"></script>
+    <style>
+        /* ALTCHA Widget Styling */
+        altcha-widget {
+            --altcha-max-width: 100%;
+            margin: 1rem 0;
+        }
+        .altcha-container {
+            margin: 1rem 0;
+        }
+    </style>
 </head>
 <body>
     <div class="card">
@@ -53,6 +65,17 @@
                 </div>
             </div>
 
+            <!-- ALTCHA Anti-Automation Challenge -->
+            <div class="altcha-container">
+                <altcha-widget 
+                    id="loginAltcha"
+                    challengeurl=""
+                    hidelogo
+                    hidefooter
+                    workers="0">
+                </altcha-widget>
+            </div>
+
             <button type="submit" id="loginBtn" class="btn btn-primary">
                 Sign In
             </button>
@@ -93,6 +116,17 @@
                 <label for="confirmPassword">Confirm Password</label>
                 <input type="password" id="confirmPassword" name="confirmPassword" class="input" 
                        required autocomplete="new-password" placeholder="••••••••">
+            </div>
+
+            <!-- ALTCHA Anti-Automation Challenge -->
+            <div class="altcha-container">
+                <altcha-widget 
+                    id="registerAltcha"
+                    challengeurl=""
+                    hidelogo
+                    hidefooter
+                    workers="0">
+                </altcha-widget>
             </div>
 
             <button type="submit" id="registerBtn" class="btn btn-primary">
