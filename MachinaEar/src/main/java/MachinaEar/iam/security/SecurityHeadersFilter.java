@@ -48,6 +48,7 @@ public class SecurityHeadersFilter implements Filter {
 
         // Content Security Policy - restrict resource loading
         // Updated to include production domains, Vercel, and Vercel Live
+        // Added worker-src with blob: for ALTCHA widget Web Workers
         httpResponse.setHeader("Content-Security-Policy",
             "default-src 'self'; " +
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live; " +
@@ -56,7 +57,8 @@ public class SecurityHeadersFilter implements Filter {
             "font-src 'self' data:; " +
             "connect-src 'self' https://localhost:3000 https://localhost:8443 https://www.machinaear.me https://machinaear.me https://*.vercel.app https://vercel.live; " +
             "frame-src 'self' https://vercel.live; " +
-            "child-src 'self' https://vercel.live; " +
+            "child-src 'self' blob: https://vercel.live; " +
+            "worker-src 'self' blob:; " +
             "frame-ancestors 'none';"
         );
 
