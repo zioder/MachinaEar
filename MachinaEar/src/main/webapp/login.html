@@ -139,6 +139,39 @@
             </div>
         </form>
 
+        <!-- Verification Code Form -->
+        <form id="verifyCodeForm" class="mt-6 space-y-4 hidden">
+            <div class="verification-icon">📧</div>
+            <p class="text-center" style="margin-bottom: 8px;">
+                We sent a verification code to<br>
+                <strong id="verifyCodeEmail"></strong>
+            </p>
+
+            <div class="form-group">
+                <label for="verificationCode">Verification Code</label>
+                <input type="text" id="verificationCode" name="code" class="input verification-code-input" 
+                       required maxlength="6" pattern="[0-9]{6}" placeholder="000000" 
+                       inputmode="numeric" autocomplete="one-time-code"
+                       style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: bold;">
+                <span class="helper-text">Enter the 6-digit code from your email</span>
+            </div>
+
+            <button type="submit" id="verifyCodeBtn" class="btn btn-primary">
+                Verify Code
+            </button>
+
+            <div class="form-footer" style="text-align: center;">
+                Didn't receive the code? 
+                <button type="button" id="resendCodeBtn" class="link" style="background: none; border: none; cursor: pointer; color: var(--primary); text-decoration: underline;">
+                    Resend Code
+                </button>
+            </div>
+
+            <div class="form-footer">
+                <a class="link" data-action="show-register">← Start over</a>
+            </div>
+        </form>
+
         <!-- Forgot Password Form -->
         <form id="forgotPasswordForm" class="mt-6 space-y-4 hidden">
             <div class="form-group">

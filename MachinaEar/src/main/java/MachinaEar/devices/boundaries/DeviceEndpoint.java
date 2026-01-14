@@ -57,6 +57,19 @@ public class DeviceEndpoint {
         public String lastError;
     }
 
+    public static class RegisterPendingRequest {
+
+        public String pairingCode;
+        public String mac;
+        public String hostname;
+    }
+
+    public static class PairDeviceRequest {
+
+        public String pairingCode;
+        public String name;
+    }
+
     private Identity getCurrentUser(SecurityContext securityContext) {
         String email = securityContext.getUserPrincipal().getName();
         return identities.findByEmail(email)
@@ -135,26 +148,33 @@ public class DeviceEndpoint {
         }
     }
 
-    @GET
-    @Path("/available")
-    @Operation(summary = "Get available devices", description = "Get a list of devices waiting to be paired")
-    public Response getAvailableDevices() {
-        List<Device> available = manager.getAvailableDevices();
-        List<DeviceDTO> dtos = available.stream()
-                .map(DeviceDTO::new)
-                .collect(Collectors.toList());
-        return Response.ok(dtos).build();
+    @POST
+    @Path("/register-pending")
+    @Operation(summary = "Register device for pairing", description = "Raspberry Pi calls this to register itself for pairing")
+    public Response registerPending(RegisterPendingRequest req) {
+        try {
+            Device device = manager.registerPendingDevice(req.pairingCode, req.mac, req.hostname);
+            return Response.accepted().entity(new DeviceDTO(device)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
     }
 
-    public static class PairRequest {
-        public String pairingCode;
-        public String name;
+    @GET
+    @Path("/available")
+    @Operation(summary = "List available devices for pairing", description = "List devices waiting to be paired")
+    public Response getAvailableDevices(@Context SecurityContext securityContext) {
+        List<Device> devices = manager.getAvailableDevices();
+        List<DeviceDTO> deviceDTOs = devices.stream()
+                .map(DeviceDTO::new)
+                .collect(Collectors.toList());
+        return Response.ok(deviceDTOs).build();
     }
 
     @POST
     @Path("/pair")
-    @Operation(summary = "Pair device", description = "Pair a device using its pairing code")
-    public Response pairDevice(@Context SecurityContext securityContext, PairRequest req) {
+    @Operation(summary = "Pair a device", description = "Complete pairing process for a device")
+    public Response pairDevice(@Context SecurityContext securityContext, PairDeviceRequest req) {
         Identity user = getCurrentUser(securityContext);
         try {
             Device device = manager.pairDevice(user.getId(), req.pairingCode, req.name);
@@ -163,5 +183,20 @@ public class DeviceEndpoint {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
     }
-}
 
+    @GET
+    @Path("/check-pairing/{pairingCode}")
+    @Operation(summary = "Check pairing status", description = "Raspberry Pi polls this to check if pairing is complete")
+    public Response checkPairing(@PathParam("pairingCode") String pairingCode) {
+        try {
+            Device device = manager.getDeviceByPairingCode(pairingCode);
+            if (device.getIsPaired()) {
+                return Response.ok(new DeviceDTO(device)).build();
+            } else {
+                return Response.status(Response.Status.ACCEPTED).entity("{\"status\":\"pending\"}").build();
+            }
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
+        }
+    }
+}

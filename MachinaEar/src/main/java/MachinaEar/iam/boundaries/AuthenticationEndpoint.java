@@ -23,11 +23,16 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import MachinaEar.iam.controllers.managers.PhoenixIAMManager;
+import MachinaEar.iam.controllers.managers.EmailService;
 import MachinaEar.iam.controllers.repositories.IdentityRepository;
+import MachinaEar.iam.controllers.repositories.PendingRegistrationRepository;
 import MachinaEar.iam.entities.Identity;
+import MachinaEar.iam.entities.PendingRegistration;
 import MachinaEar.iam.security.AltchaManager;
 import MachinaEar.iam.security.Secured;
 import MachinaEar.iam.security.JwtManager;
+import MachinaEar.iam.security.Argon2Utility;
+import MachinaEar.iam.security.PasswordValidator;
 
 @Path("/auth")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -37,6 +42,8 @@ public class AuthenticationEndpoint {
 
     @Inject PhoenixIAMManager manager;
     @Inject IdentityRepository identities;
+    @Inject PendingRegistrationRepository pendingRegistrations;
+    @Inject EmailService emailService;
     @Inject JwtManager jwt;
     @Inject AltchaManager altchaManager;
 
@@ -52,6 +59,8 @@ public class AuthenticationEndpoint {
         public Integer totpCode; // 6-digit TOTP code (optional)
         public String recoveryCode; // Recovery code for 2FA (optional)
         public String altcha; // ALTCHA proof-of-work response (required)
+        
+        public LoginRequest() {}
     }
 
     public static class RegisterRequest {
@@ -59,17 +68,19 @@ public class AuthenticationEndpoint {
         public String username;
         public String password; // transmis via TLS
         public String altcha; // ALTCHA proof-of-work response (required)
+        
+        public RegisterRequest() {}
     }
 
     @POST @Path("/register")
     @Operation(
-        summary = "OAuth 2.1 User Registration - No Tokens Issued",
-        description = "Register a new user account. Does not issue tokens - use OAuth 2.1 flow to authenticate after registration."
+        summary = "Start Registration - Sends Verification Code",
+        description = "Initiates registration by validating input and sending a 6-digit verification code to the email. Account is NOT created until code is verified."
     )
     @APIResponses({
         @APIResponse(
             responseCode = "200",
-            description = "Registration successful - user created, must login via OAuth flow"
+            description = "Verification code sent - user must verify with /verify-code endpoint"
         ),
         @APIResponse(
             responseCode = "400",
@@ -94,15 +105,72 @@ public class AuthenticationEndpoint {
                 .entity(new ErrorResponse("Security verification failed. Please complete the challenge.")).build();
         }
         
-        try {
-            // Register user only - do NOT issue tokens
-            manager.register(req.email, req.username, req.password.toCharArray());
+        String email = req.email.trim().toLowerCase();
+        String username = req.username.trim();
+        char[] password = req.password.toCharArray();
 
-            return Response.ok(new SuccessResponse("Registration successful. Please login via OAuth flow.")).build();
-        } catch (IllegalArgumentException e) {
+        try {
+            // Validate email format
+            if (!email.contains("@")) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Invalid email format")).build();
+            }
+
+            // Check if email already registered
+            if (identities.emailExists(email)) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Email already registered")).build();
+            }
+
+            // Validate username
+            if (username.isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Username is required")).build();
+            }
+
+            // Validate password strength
+            PasswordValidator.ValidationResult validation = PasswordValidator.validate(password);
+            if (!validation.isValid()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse(validation.getErrorMessage())).build();
+            }
+
+            // Hash password for storage
+            String passwordHash = Argon2Utility.hash(password);
+
+            // Create pending registration
+            PendingRegistration pending = new PendingRegistration(email, username, passwordHash);
+            pendingRegistrations.create(pending);
+
+            // Send verification code email
+            boolean emailSent = emailService.sendVerificationCodeEmail(email, pending.getVerificationCode());
+
+            if (!emailSent && emailService.isEnabled()) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new ErrorResponse("Failed to send verification email. Please try again.")).build();
+            }
+
+            // Return success with email masked
+            String maskedEmail = maskEmail(email);
+            return Response.ok(new VerificationPendingResponse(
+                "Verification code sent to " + maskedEmail,
+                email,
+                15 // expires in 15 minutes
+            )).build();
+
+        } catch (Exception e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage())).build();
         }
+    }
+
+    /**
+     * Mask email for privacy (e.g., t***@example.com)
+     */
+    private String maskEmail(String email) {
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) return email;
+        return email.charAt(0) + "***" + email.substring(atIndex);
     }
 
     @POST @Path("/login")
@@ -171,8 +239,22 @@ public class AuthenticationEndpoint {
             HttpSession session = request.getSession(true);
             session.setAttribute("identity_id", user.getId().toHexString());
 
+            // Set session cookie with domain=".machinaear.me" to share across subdomains
+            jakarta.ws.rs.core.NewCookie sessionCookie = new jakarta.ws.rs.core.NewCookie(
+                "JSESSIONID", // Use default session cookie name
+                session.getId(),
+                "/",
+                ".machinaear.me",
+                "Session",
+                60 * 60 * 24 * 7, // maxAge: 7 days
+                true, // secure
+                true  // httpOnly
+            );
+
             // Return success with optional returnTo URL for client-side redirect
-            return Response.ok(new LoginSuccessResponse("Login successful", returnTo)).build();
+            return Response.ok(new LoginSuccessResponse("Login successful", returnTo))
+                .cookie(sessionCookie)
+                .build();
 
         } catch (SecurityException e) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -181,7 +263,7 @@ public class AuthenticationEndpoint {
     }
 
     @POST @Path("/verify-email")
-    @Operation(summary = "Verify user email", description = "Verifies user email using the token sent via email")
+    @Operation(summary = "Verify user email (legacy)", description = "Verifies user email using the token sent via email")
     public Response verifyEmail(@QueryParam("token") String token) {
         if (token == null || token.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -193,6 +275,124 @@ public class AuthenticationEndpoint {
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    public static class VerifyCodeRequest {
+        public String email;
+        public String code;
+        public VerifyCodeRequest() {}
+    }
+
+    @POST @Path("/verify-code")
+    @Operation(
+        summary = "Verify Registration Code",
+        description = "Verifies the 6-digit code sent to email and completes account registration"
+    )
+    @APIResponses({
+        @APIResponse(responseCode = "200", description = "Account created successfully"),
+        @APIResponse(responseCode = "400", description = "Invalid or expired code")
+    })
+    public Response verifyCode(VerifyCodeRequest req) {
+        if (req == null || req.email == null || req.code == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Email and code required")).build();
+        }
+
+        String email = req.email.trim().toLowerCase();
+        String code = req.code.trim();
+
+        try {
+            // Find pending registration
+            PendingRegistration pending = pendingRegistrations.findByEmail(email)
+                .orElse(null);
+
+            if (pending == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("No pending registration found. Please register again.")).build();
+            }
+
+            // Check if expired
+            if (pending.isExpired()) {
+                pendingRegistrations.markVerifiedAndDelete(email);
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Verification code expired. Please register again.")).build();
+            }
+
+            // Check too many attempts
+            if (pending.isTooManyAttempts()) {
+                pendingRegistrations.markVerifiedAndDelete(email);
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Too many failed attempts. Please register again.")).build();
+            }
+
+            // Verify code
+            if (!pending.verifyCode(code)) {
+                pending.incrementAttempts();
+                pendingRegistrations.update(pending);
+                int remaining = 5 - pending.getAttempts();
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Invalid code. " + remaining + " attempts remaining.")).build();
+            }
+
+            // Code is valid - create the actual account
+            manager.createVerifiedAccount(
+                pending.getEmail(),
+                pending.getUsername(),
+                pending.getPasswordHash()
+            );
+
+            // Clean up pending registration
+            pendingRegistrations.markVerifiedAndDelete(email);
+
+            return Response.ok(new SuccessResponse("Account created successfully! You can now sign in.")).build();
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    public static class ResendCodeRequest {
+        public String email;
+        public ResendCodeRequest() {}
+    }
+
+    @POST @Path("/resend-code")
+    @Operation(
+        summary = "Resend Verification Code",
+        description = "Generates and sends a new verification code to the email"
+    )
+    public Response resendCode(ResendCodeRequest req) {
+        if (req == null || req.email == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Email required")).build();
+        }
+
+        String email = req.email.trim().toLowerCase();
+
+        try {
+            PendingRegistration pending = pendingRegistrations.findByEmail(email)
+                .orElse(null);
+
+            if (pending == null) {
+                // Don't reveal if email exists or not
+                return Response.ok(new SuccessResponse("If a pending registration exists, a new code has been sent.")).build();
+            }
+
+            // Regenerate code
+            pending.regenerateCode();
+            pendingRegistrations.update(pending);
+
+            // Send new code
+            emailService.sendVerificationCodeEmail(email, pending.getVerificationCode());
+
+            String maskedEmail = maskEmail(email);
+            return Response.ok(new SuccessResponse("New verification code sent to " + maskedEmail)).build();
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("Failed to resend code. Please try again.")).build();
         }
     }
 
@@ -353,5 +553,18 @@ public class AuthenticationEndpoint {
     public static class ErrorResponse {
         public String error;
         public ErrorResponse(String error) { this.error = error; }
+    }
+
+    public static class VerificationPendingResponse {
+        public String message;
+        public String email;
+        public int expiresInMinutes;
+        public boolean verificationRequired = true;
+
+        public VerificationPendingResponse(String message, String email, int expiresInMinutes) {
+            this.message = message;
+            this.email = email;
+            this.expiresInMinutes = expiresInMinutes;
+        }
     }
 }
