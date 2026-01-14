@@ -130,12 +130,37 @@
 				</div>
 			</form>
 
-			<!-- Email Verification Page -->
+			<!-- Email Verification Page (for token-based verification) -->
 			<div id="verifyEmailPage" class="mt-6 space-y-4 hidden">
 				<div class="verification-icon">✉️</div>
 				<p id="verifyEmailMessage" class="text-center">Verifying your email...</p>
 				<button id="verifyEmailBackBtn" class="btn btn-secondary">Back to Sign In</button>
 			</div>
+
+			<!-- Email Verification Code Form (for 6-digit code verification) -->
+			<form id="verifyCodeForm" class="mt-6 space-y-4 hidden">
+				<div class="verification-icon">✉️</div>
+				<p id="verifyCodeEmail" class="text-center email-display"></p>
+				
+				<div class="form-group">
+					<label for="verificationCode">Verification Code</label>
+					<input type="text" id="verificationCode" name="verificationCode" class="input verification-code-input" 
+						maxlength="6" pattern="[0-9]{6}" placeholder="000000" 
+						inputmode="numeric" autocomplete="one-time-code" required />
+					<span class="helper-text">Enter the 6-digit code sent to your email</span>
+				</div>
+
+				<button type="submit" id="verifyCodeBtn" class="btn btn-primary">Verify Code</button>
+				
+				<div class="form-footer">
+					<span>Didn't receive the code?</span>
+					<button type="button" id="resendCodeBtn" class="link btn-link">Resend Code</button>
+				</div>
+
+				<div class="form-footer">
+					<a class="link" data-action="show-register">Start Over</a>
+				</div>
+			</form>
 
 			<!-- Reset Password Form -->
 			<form id="resetPasswordForm" class="mt-6 space-y-4 hidden">
