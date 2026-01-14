@@ -234,8 +234,12 @@ body {
 
 /* Toggle Link (for 2FA) */
 .toggle-link {
-    text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 /* Form Footer */
