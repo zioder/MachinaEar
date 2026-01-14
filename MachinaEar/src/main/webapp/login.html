@@ -141,17 +141,26 @@
 			<form id="verifyCodeForm" class="mt-6 space-y-4 hidden">
 				<div class="verification-icon">✉️</div>
 				<p id="verifyCodeEmail" class="text-center email-display"></p>
-				
+
 				<div class="form-group">
 					<label for="verificationCode">Verification Code</label>
-					<input type="text" id="verificationCode" name="verificationCode" class="input verification-code-input" 
-						maxlength="6" pattern="[0-9]{6}" placeholder="000000" 
-						inputmode="numeric" autocomplete="one-time-code" required />
+					<input
+						type="text"
+						id="verificationCode"
+						name="verificationCode"
+						class="input verification-code-input"
+						maxlength="6"
+						pattern="[0-9]{6}"
+						placeholder="000000"
+						inputmode="numeric"
+						autocomplete="one-time-code"
+						required
+					/>
 					<span class="helper-text">Enter the 6-digit code sent to your email</span>
 				</div>
 
 				<button type="submit" id="verifyCodeBtn" class="btn btn-primary">Verify Code</button>
-				
+
 				<div class="form-footer">
 					<span>Didn't receive the code?</span>
 					<button type="button" id="resendCodeBtn" class="link btn-link">Resend Code</button>
