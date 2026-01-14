@@ -69,6 +69,7 @@ Thumbs.db
 **/failsafe-reports/
 **/test-results/
 
+deploy**.js
 # Temporary files
 *.tmp
 *.temp

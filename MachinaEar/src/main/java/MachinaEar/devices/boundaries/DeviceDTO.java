@@ -20,13 +20,15 @@ public class DeviceDTO {
     private String lastError;
     private Instant createdAt;
     private Instant updatedAt;
-    
-    // Pairing fields
+
+    // MQTT and Pairing fields
     private String pairingCode;
     private String deviceToken;
     private String mac;
+    private Double anomalyScore;
+    private Instant lastAnomalyDetection;
     private Boolean isPaired;
-    private Instant expiresAt;
+    private Boolean isOnline;
 
     public DeviceDTO() {
     }
@@ -43,13 +45,13 @@ public class DeviceDTO {
         this.lastError = device.getLastError();
         this.createdAt = device.getCreatedAt();
         this.updatedAt = device.getUpdatedAt();
-        
-        // Pairing fields
         this.pairingCode = device.getPairingCode();
         this.deviceToken = device.getDeviceToken();
         this.mac = device.getMac();
+        this.anomalyScore = device.getAnomalyScore();
+        this.lastAnomalyDetection = device.getLastAnomalyDetection();
         this.isPaired = device.getIsPaired();
-        this.expiresAt = device.getExpiresAt();
+        this.isOnline = device.getIsOnline();
     }
 
     // Getters and setters
@@ -140,8 +142,7 @@ public class DeviceDTO {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
-    
-    // Pairing getters/setters
+
     public String getPairingCode() {
         return pairingCode;
     }
@@ -166,6 +167,22 @@ public class DeviceDTO {
         this.mac = mac;
     }
 
+    public Double getAnomalyScore() {
+        return anomalyScore;
+    }
+
+    public void setAnomalyScore(Double anomalyScore) {
+        this.anomalyScore = anomalyScore;
+    }
+
+    public Instant getLastAnomalyDetection() {
+        return lastAnomalyDetection;
+    }
+
+    public void setLastAnomalyDetection(Instant lastAnomalyDetection) {
+        this.lastAnomalyDetection = lastAnomalyDetection;
+    }
+
     public Boolean getIsPaired() {
         return isPaired;
     }
@@ -174,12 +191,11 @@ public class DeviceDTO {
         this.isPaired = isPaired;
     }
 
-    public Instant getExpiresAt() {
-        return expiresAt;
+    public Boolean getIsOnline() {
+        return isOnline;
     }
 
-    public void setExpiresAt(Instant expiresAt) {
-        this.expiresAt = expiresAt;
+    public void setIsOnline(Boolean isOnline) {
+        this.isOnline = isOnline;
     }
 }
-

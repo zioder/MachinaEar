@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks";
 import { initiateOAuthFlow, initiateGoogleOAuthFlow } from "@/lib/oauth";
 import { LoadingSpinner } from "@/components/ui";
 
 /**
- * Root page - shows landing page with sign-in/sign-up options, or redirects to /home if authenticated
- * Authentication is handled by the IAM server
+ * Inner component that uses useSearchParams (must be wrapped in Suspense)
  */
-export default function RootPage() {
+function RootPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
@@ -20,8 +20,27 @@ export default function RootPage() {
     }
   }, [isAuthenticated, loading, router]);
 
+  // Check for auto_login parameter (user logged in via IAM directly, e.g., after password reset)
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      const autoLogin = searchParams.get('auto_login');
+      if (autoLogin === 'true') {
+        // Clear the URL parameter and initiate OAuth flow
+        // The user already has a session on IAM, so this will complete automatically
+        window.history.replaceState({}, '', '/');
+        initiateOAuthFlow();
+      }
+    }
+  }, [loading, isAuthenticated, searchParams]);
+
   if (loading) {
     return <LoadingSpinner fullScreen message="Loading..." />;
+  }
+
+  // Show loading if auto_login is pending
+  const autoLogin = searchParams.get('auto_login');
+  if (autoLogin === 'true') {
+    return <LoadingSpinner fullScreen message="Signing in..." />;
   }
 
   if (isAuthenticated) {
@@ -142,5 +161,17 @@ export default function RootPage() {
         <p>© 2026 MachinaEar. Built for industrial excellence.</p>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Root page - shows landing page with sign-in/sign-up options, or redirects to /home if authenticated
+ * Authentication is handled by the IAM server
+ */
+export default function RootPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner fullScreen message="Loading..." />}>
+      <RootPageContent />
+    </Suspense>
   );
 }

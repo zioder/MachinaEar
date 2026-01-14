@@ -4,10 +4,13 @@ import time, requests, sqlite3, uuid, signal, sys
 from pathlib import Path
 import RPi.GPIO as GPIO
 
-API_URL = "http://54.82.3.196/iam"
+API_URL = "https://iam.machinaear.me/iam"
 SENSOR_PIN = 4
 SOUND_WINDOW = 5.0
 ANOMALY_THRESHOLD = 3
+
+# Check for --reset flag to force unpair
+FORCE_RESET = '--reset' in sys.argv or '-r' in sys.argv
 
 # Setup database
 Path.home().joinpath(".machinaear").mkdir(exist_ok=True)
@@ -23,6 +26,16 @@ def get_cfg(k):
 def set_cfg(k, v): 
     conn.execute('INSERT OR REPLACE INTO device_config VALUES (?,?)', (k,v))
     conn.commit()
+
+def clear_pairing():
+    """Clear all pairing data to force re-pairing."""
+    conn.execute("DELETE FROM device_config WHERE key IN ('device_id', 'device_token', 'pairing_code')")
+    conn.commit()
+    print("[RESET] Cleared pairing data - starting fresh!")
+
+# If --reset flag is passed, clear pairing data
+if FORCE_RESET:
+    clear_pairing()
 
 # GPIO setup - simple polling mode (no edge detection)
 GPIO.setmode(GPIO.BCM)
@@ -118,11 +131,13 @@ while True:
                 print(f"[{time.strftime('%H:%M:%S')}] ANOMALY: {count} sounds!")
             
             try:
-                requests.post(f"{API_URL}/device-registration/status",
+                resp = requests.post(f"{API_URL}/device-registration/status",
                     json={"status": status, "anomalyScore": score},
                     headers={"X-Device-Token": device_token}, timeout=5)
-            except:
-                pass
+                if resp.status_code != 200:
+                    print(f"[{time.strftime('%H:%M:%S')}] Status update failed: {resp.status_code}")
+            except Exception as e:
+                print(f"[{time.strftime('%H:%M:%S')}] Status update error: {e}")
             
             last_status_update = time.time()
         

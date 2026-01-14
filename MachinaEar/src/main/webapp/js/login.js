@@ -3,7 +3,7 @@
  * Handles login, registration, and 2FA flows
  */
 
-(function() {
+(function () {
     'use strict';
 
     // Configuration
@@ -12,12 +12,88 @@
     const ALTCHA_CHALLENGE_URL = API_URL + '/altcha/challenge';
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
+    // App URLs for OAuth flow
+    const APP_ROOT_URL = 'https://machinaear.me';
+    const OAUTH_CLIENT_ID = 'machina-ear-web';
+    const OAUTH_REDIRECT_URI = APP_ROOT_URL + '/auth/callback';
+
+    // ==================== PKCE Helper Functions ====================
+
+    /**
+     * Generate a cryptographically random code verifier for PKCE
+     */
+    function generateCodeVerifier() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array);
+    }
+
+    /**
+     * Generate SHA-256 code challenge from verifier
+     */
+    async function generateCodeChallenge(verifier) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(verifier);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return base64UrlEncode(new Uint8Array(digest));
+    }
+
+    /**
+     * Base64 URL encode without padding
+     */
+    function base64UrlEncode(array) {
+        const base64 = btoa(String.fromCharCode.apply(null, array));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    /**
+     * Generate random state for CSRF protection
+     */
+    function generateState() {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array);
+    }
+
+    /**
+     * Store PKCE parameters in sessionStorage for the client app to use
+     */
+    function storePKCEParams(verifier, state) {
+        sessionStorage.setItem('pkce_verifier', verifier);
+        sessionStorage.setItem('pkce_state', state);
+    }
+
+    /**
+     * Initiate OAuth flow - redirect to authorize endpoint
+     * This function mirrors the client-side OAuth flow
+     */
+    async function initiateOAuthFlow() {
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        const state = generateState();
+
+        // Store PKCE params for the client app callback to use
+        storePKCEParams(codeVerifier, state);
+
+        const authParams = new URLSearchParams({
+            response_type: 'code',
+            client_id: OAUTH_CLIENT_ID,
+            redirect_uri: OAUTH_REDIRECT_URI,
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256',
+            state: state
+        });
+
+        // Redirect to authorize endpoint (same origin)
+        window.location.href = `${API_URL}/auth/authorize?${authParams.toString()}`;
+    }
 
     // State
     let requires2FA = false;
     let currentForm = 'login';
     let loginAltchaValue = null;
     let registerAltchaValue = null;
+    let pendingVerificationEmail = null; // Email awaiting code verification
 
     // DOM Elements Cache
     const elements = {
@@ -62,6 +138,12 @@
         // Verify email elements
         verifyEmailMessage: null,
         verifyEmailBackBtn: null,
+        // Verification code elements
+        verifyCodeForm: null,
+        verificationCode: null,
+        verifyCodeBtn: null,
+        resendCodeBtn: null,
+        verifyCodeEmail: null,
         // Titles
         formTitle: null,
         formSubtitle: null,
@@ -86,11 +168,20 @@
     function checkInitialMode() {
         const mode = params.get('mode');
         const token = params.get('token');
-        
+
         if (token) {
             // Check if this is an email verification or password reset
             const path = window.location.pathname;
-            if (path.includes('verify-email')) {
+            
+            // New: Check mode parameter first (for new URLs)
+            if (mode === 'reset-password') {
+                showResetPasswordForm(token);
+            } else if (mode === 'verify-email') {
+                showVerifyEmailPage();
+                handleEmailVerification(token);
+            }
+            // Legacy: Check path (for old URLs)
+            else if (path.includes('verify-email')) {
                 showVerifyEmailPage();
                 handleEmailVerification(token);
             } else if (path.includes('reset-password')) {
@@ -139,6 +230,11 @@
         elements.resetStrengthLabel = document.getElementById('resetStrengthLabel');
         elements.verifyEmailMessage = document.getElementById('verifyEmailMessage');
         elements.verifyEmailBackBtn = document.getElementById('verifyEmailBackBtn');
+        elements.verifyCodeForm = document.getElementById('verifyCodeForm');
+        elements.verificationCode = document.getElementById('verificationCode');
+        elements.verifyCodeBtn = document.getElementById('verifyCodeBtn');
+        elements.resendCodeBtn = document.getElementById('resendCodeBtn');
+        elements.verifyCodeEmail = document.getElementById('verifyCodeEmail');
         elements.formTitle = document.getElementById('formTitle');
         elements.formSubtitle = document.getElementById('formSubtitle');
         elements.loginAltcha = document.getElementById('loginAltcha');
@@ -193,17 +289,19 @@
         elements.registerForm?.addEventListener('submit', handleRegister);
         elements.forgotPasswordForm?.addEventListener('submit', handleForgotPassword);
         elements.resetPasswordForm?.addEventListener('submit', handleResetPassword);
-        
+        elements.verifyCodeForm?.addEventListener('submit', handleVerifyCode);
+        elements.resendCodeBtn?.addEventListener('click', handleResendCode);
+
         // Password strength
         elements.registerPassword?.addEventListener('input', handlePasswordInput);
         elements.newPassword?.addEventListener('input', handleResetPasswordInput);
-        
+
         // 2FA toggle
         elements.toggle2FALink?.addEventListener('click', toggle2FASection);
-        
+
         // Forgot password link
         elements.forgotPasswordLink?.addEventListener('click', showForgotPasswordForm);
-        
+
         // Verify email back button
         elements.verifyEmailBackBtn?.addEventListener('click', showLoginForm);
 
@@ -315,6 +413,19 @@
         elements.forgotPasswordForm?.classList.add('hidden');
         elements.resetPasswordForm?.classList.add('hidden');
         elements.verifyEmailPage?.classList.add('hidden');
+        elements.verifyCodeForm?.classList.add('hidden');
+    }
+
+    function showVerificationCodeForm(email) {
+        hideAllForms();
+        elements.verifyCodeForm?.classList.remove('hidden');
+        if (elements.formTitle) elements.formTitle.textContent = 'Verify Your Email';
+        if (elements.formSubtitle) elements.formSubtitle.textContent = 'Enter the 6-digit code sent to your email';
+        if (elements.verifyCodeEmail) elements.verifyCodeEmail.textContent = email;
+        hideAlerts();
+        currentForm = 'verify-code';
+        pendingVerificationEmail = email;
+        elements.verificationCode?.focus();
     }
 
     // ==================== 2FA Functions ====================
@@ -465,8 +576,14 @@
 
             // Login successful
             showSuccess('Login successful! Redirecting...');
-            setTimeout(() => {
-                window.location.href = returnTo || '/home';
+            setTimeout(async () => {
+                // If returnTo points to OAuth authorize endpoint, use it (coming from OAuth flow)
+                if (returnTo && returnTo.includes('/auth/authorize')) {
+                    window.location.href = returnTo;
+                } else {
+                    // No returnTo or not an OAuth flow - redirect to app with auto_login flag
+                    window.location.href = APP_ROOT_URL + '?auto_login=true';
+                }
             }, 500);
 
         } catch (err) {
@@ -505,7 +622,7 @@
             return;
         }
 
-        setButtonLoading(elements.registerBtn, true, 'Creating account...');
+        setButtonLoading(elements.registerBtn, true, 'Sending verification code...');
 
         try {
             const response = await fetch(`${API_URL}/auth/register`, {
@@ -521,19 +638,120 @@
                 throw new Error(result.error || 'Registration failed');
             }
 
-            // Registration successful - redirect to login
-            showSuccess('Account created! Please sign in with your credentials.');
-            
-            // Reset register form and show login form after a delay
+            // Check if verification is required (new flow)
+            if (result.verificationRequired) {
+                setButtonLoading(elements.registerBtn, false, 'Create Account');
+                showVerificationCodeForm(result.email || email);
+                showSuccess(result.message || 'Verification code sent! Check your email.');
+                return;
+            }
+
+            // Legacy flow (shouldn't happen with new backend)
+            showSuccess('Account created! Please check your email for a verification link.');
+            setButtonLoading(elements.registerBtn, false, 'Account Created');
             setTimeout(() => {
                 showLoginForm();
-            }, 2000);
+                showInfo('Please verify your email before signing in.');
+            }, 3000);
 
         } catch (err) {
             showError(err.message || 'Registration failed');
             setButtonLoading(elements.registerBtn, false, 'Create Account');
             // Reset ALTCHA widget on failure
             resetAltcha(elements.registerAltcha);
+        }
+    }
+
+    // ==================== Verify Code Handler ====================
+
+    async function handleVerifyCode(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        const code = elements.verificationCode?.value?.trim();
+
+        if (!code || code.length !== 6) {
+            showError('Please enter the 6-digit verification code');
+            return;
+        }
+
+        if (!pendingVerificationEmail) {
+            showError('No pending registration. Please start over.');
+            showRegisterForm();
+            return;
+        }
+
+        setButtonLoading(elements.verifyCodeBtn, true, 'Verifying...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/verify-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                    email: pendingVerificationEmail, 
+                    code: code 
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Verification failed');
+            }
+
+            // Success - account created
+            showSuccess(result.message || 'Account created successfully! You can now sign in.');
+            pendingVerificationEmail = null;
+            
+            // Redirect to login after a short delay
+            setTimeout(() => {
+                showLoginForm();
+                showSuccess('Your account is ready. Please sign in.');
+            }, 2000);
+
+        } catch (err) {
+            showError(err.message || 'Verification failed');
+            setButtonLoading(elements.verifyCodeBtn, false, 'Verify Code');
+        }
+    }
+
+    // ==================== Resend Code Handler ====================
+
+    async function handleResendCode(e) {
+        e.preventDefault();
+        hideAlerts();
+
+        if (!pendingVerificationEmail) {
+            showError('No pending registration. Please start over.');
+            showRegisterForm();
+            return;
+        }
+
+        setButtonLoading(elements.resendCodeBtn, true, 'Sending...');
+
+        try {
+            const response = await fetch(`${API_URL}/auth/resend-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email: pendingVerificationEmail })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to resend code');
+            }
+
+            showSuccess(result.message || 'New verification code sent!');
+            if (elements.verificationCode) elements.verificationCode.value = '';
+            elements.verificationCode?.focus();
+
+        } catch (err) {
+            showError(err.message || 'Failed to resend code');
+        } finally {
+            setButtonLoading(elements.resendCodeBtn, false, 'Resend Code');
         }
     }
 
@@ -568,10 +786,10 @@
 
             // Show success message
             showSuccess(result.message || 'If an account exists with that email, a reset link has been sent.');
-            
+
             // Clear form
             if (elements.forgotEmail) elements.forgotEmail.value = '';
-            
+
             // Show back to login option after a delay
             setTimeout(() => {
                 showInfo('Check your email for the reset link. You can close this page.');
@@ -613,7 +831,7 @@
                 elements.verifyEmailMessage.textContent = '✅ Email verified successfully!';
             }
             showSuccess(result.message || 'Email verified successfully! You can now sign in.');
-            
+
             // Redirect to login after a delay
             setTimeout(() => {
                 showLoginForm();
@@ -670,15 +888,16 @@
             }
 
             // Success
-            showSuccess(result.message || 'Password reset successfully! Redirecting to login...');
-            
+            showSuccess(result.message || 'Password reset successfully! Please sign in with your new password.');
+
             // Clear form
             if (elements.newPassword) elements.newPassword.value = '';
             if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
-            
-            // Redirect to login after a delay
+
+            // Show login form
             setTimeout(() => {
                 showLoginForm();
+                showInfo('Your password has been reset. Sign in below, or go to the app to sign in with OAuth.');
             }, 2000);
 
         } catch (err) {
