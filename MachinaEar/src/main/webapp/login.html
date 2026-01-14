@@ -1,202 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In - MachinaEar</title>
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-    <div class="card">
-        <h1 id="formTitle" class="title">Sign In</h1>
-        <p id="formSubtitle" class="subtitle">Enter your credentials to continue</p>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Sign In - MachinaEar</title>
+		<link rel="stylesheet" href="css/styles.css" />
+		<!-- ALTCHA Widget (hosted locally to avoid CSP issues) -->
+		<script async defer src="js/altcha.min.js" type="module"></script>
+		<style>
+			/* ALTCHA Widget Styling */
+			altcha-widget {
+				--altcha-max-width: 100%;
+				margin: 1rem 0;
+			}
+			.altcha-container {
+				margin: 1rem 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="card">
+			<h1 id="formTitle" class="title">Sign In</h1>
+			<p id="formSubtitle" class="subtitle">Enter your credentials to continue</p>
 
-        <!-- Alerts -->
-        <div id="errorAlert" class="alert alert-error hidden"></div>
-        <div id="infoAlert" class="alert alert-info hidden"></div>
-        <div id="successAlert" class="alert alert-success hidden"></div>
+			<!-- Alerts -->
+			<div id="errorAlert" class="alert alert-error hidden"></div>
+			<div id="infoAlert" class="alert alert-info hidden"></div>
+			<div id="successAlert" class="alert alert-success hidden"></div>
 
-        <!-- Login Form -->
-        <form id="loginForm" class="mt-6 space-y-4">
-            <div class="form-group">
-                <label for="loginEmail">Email Address</label>
-                <input type="email" id="loginEmail" name="email" class="input" 
-                       required autocomplete="email" placeholder="you@example.com">
-            </div>
+			<!-- Login Form -->
+			<form id="loginForm" class="mt-6 space-y-4">
+				<div class="form-group">
+					<label for="loginEmail">Email Address</label>
+					<input type="email" id="loginEmail" name="email" class="input" required autocomplete="email" placeholder="you@example.com" />
+				</div>
 
-            <div class="form-group">
-                <label for="loginPassword">Password</label>
-                <input type="password" id="loginPassword" name="password" class="input" 
-                       required autocomplete="current-password" placeholder="••••••••">
-            </div>
+				<div class="form-group">
+					<label for="loginPassword">Password</label>
+					<input type="password" id="loginPassword" name="password" class="input" required autocomplete="current-password" placeholder="••••••••" />
+				</div>
 
-            <div class="toggle-link">
-                <a id="toggle2FALink" class="link">I have a 2FA code</a>
-                <a id="forgotPasswordLink" class="link" style="float: right;">Forgot password?</a>
-            </div>
+				<div class="toggle-link">
+					<a id="toggle2FALink" class="link">I have a 2FA code</a>
+					<a id="forgotPasswordLink" class="link">Forgot password?</a>
+				</div>
 
-            <!-- 2FA Section (collapsible) -->
-            <div id="twoFactorSection" class="section-collapsible">
-                <div class="form-group">
-                    <label for="totpCode">Two-Factor Authentication Code</label>
-                    <input type="text" id="totpCode" name="totpCode" class="input" 
-                           maxlength="6" pattern="[0-9]{6}" placeholder="000000" 
-                           inputmode="numeric" autocomplete="one-time-code">
-                    <span class="helper-text">Enter the 6-digit code from your authenticator app</span>
-                </div>
+				<!-- 2FA Section (collapsible) -->
+				<div id="twoFactorSection" class="section-collapsible">
+					<div class="form-group">
+						<label for="totpCode">Two-Factor Authentication Code</label>
+						<input type="text" id="totpCode" name="totpCode" class="input" maxlength="6" pattern="[0-9]{6}" placeholder="000000" inputmode="numeric" autocomplete="one-time-code" />
+						<span class="helper-text">Enter the 6-digit code from your authenticator app</span>
+					</div>
 
-                <div class="form-group">
-                    <label for="recoveryCode">Or use Recovery Code</label>
-                    <input type="text" id="recoveryCode" name="recoveryCode" class="input font-mono" 
-                           placeholder="XXXX-XXXX-XXXX" autocomplete="off">
-                    <span class="helper-text">Use a recovery code if you can't access your authenticator</span>
-                </div>
-            </div>
+					<div class="form-group">
+						<label for="recoveryCode">Or use Recovery Code</label>
+						<input type="text" id="recoveryCode" name="recoveryCode" class="input font-mono" placeholder="XXXX-XXXX-XXXX" autocomplete="off" />
+						<span class="helper-text">Use a recovery code if you can't access your authenticator</span>
+					</div>
+				</div>
 
-            <button type="submit" id="loginBtn" class="btn btn-primary">
-                Sign In
-            </button>
+				<!-- ALTCHA Anti-Automation Challenge -->
+				<div class="altcha-container">
+					<altcha-widget id="loginAltcha" challengeurl="" hidelogo hidefooter workers="0"> </altcha-widget>
+				</div>
 
-            <div class="form-footer">
-                Don't have an account? 
-                <a class="link" data-action="show-register">Sign up</a>
-            </div>
-        </form>
+				<button type="submit" id="loginBtn" class="btn btn-primary">Sign In</button>
 
-        <!-- Register Form -->
-        <form id="registerForm" class="mt-6 space-y-4 hidden">
-            <div class="form-group">
-                <label for="registerEmail">Email Address</label>
-                <input type="email" id="registerEmail" name="email" class="input" 
-                       required autocomplete="email" placeholder="you@example.com">
-            </div>
+				<div class="form-footer">
+					Don't have an account?
+					<a class="link" data-action="show-register">Sign up</a>
+				</div>
+			</form>
 
-            <div class="form-group">
-                <label for="registerUsername">Username</label>
-                <input type="text" id="registerUsername" name="username" class="input" 
-                       required autocomplete="username" minlength="3" placeholder="johndoe">
-            </div>
+			<!-- Register Form -->
+			<form id="registerForm" class="mt-6 space-y-4 hidden">
+				<div class="form-group">
+					<label for="registerEmail">Email Address</label>
+					<input type="email" id="registerEmail" name="email" class="input" required autocomplete="email" placeholder="you@example.com" />
+				</div>
 
-            <div class="form-group">
-                <label for="registerPassword">Password</label>
-                <input type="password" id="registerPassword" name="password" class="input" 
-                       required autocomplete="new-password" minlength="8" placeholder="••••••••">
-                <div id="passwordStrength" class="password-strength hidden">
-                    <div class="password-strength-bar">
-                        <div id="strengthFill" class="password-strength-fill"></div>
-                    </div>
-                    <span id="strengthLabel" class="strength-label"></span>
-                </div>
-            </div>
+				<div class="form-group">
+					<label for="registerUsername">Username</label>
+					<input type="text" id="registerUsername" name="username" class="input" required autocomplete="username" minlength="3" placeholder="johndoe" />
+				</div>
 
-            <div class="form-group">
-                <label for="confirmPassword">Confirm Password</label>
-                <input type="password" id="confirmPassword" name="confirmPassword" class="input" 
-                       required autocomplete="new-password" placeholder="••••••••">
-            </div>
+				<div class="form-group">
+					<label for="registerPassword">Password</label>
+					<input type="password" id="registerPassword" name="password" class="input" required autocomplete="new-password" minlength="8" placeholder="••••••••" />
+					<div id="passwordStrength" class="password-strength hidden">
+						<div class="password-strength-bar">
+							<div id="strengthFill" class="password-strength-fill"></div>
+						</div>
+						<span id="strengthLabel" class="strength-label"></span>
+					</div>
+				</div>
 
-            <button type="submit" id="registerBtn" class="btn btn-primary">
-                Create Account
-            </button>
+				<div class="form-group">
+					<label for="confirmPassword">Confirm Password</label>
+					<input type="password" id="confirmPassword" name="confirmPassword" class="input" required autocomplete="new-password" placeholder="••••••••" />
+				</div>
 
-            <div class="form-footer">
-                Already have an account? 
-                <a class="link" data-action="show-login">Sign in</a>
-            </div>
-        </form>
+				<!-- ALTCHA Anti-Automation Challenge -->
+				<div class="altcha-container">
+					<altcha-widget id="registerAltcha" challengeurl="" hidelogo hidefooter workers="0"> </altcha-widget>
+				</div>
 
-        <!-- Verification Code Form -->
-        <form id="verifyCodeForm" class="mt-6 space-y-4 hidden">
-            <div class="verification-icon">📧</div>
-            <p class="text-center" style="margin-bottom: 8px;">
-                We sent a verification code to<br>
-                <strong id="verifyCodeEmail"></strong>
-            </p>
+				<button type="submit" id="registerBtn" class="btn btn-primary">Create Account</button>
 
-            <div class="form-group">
-                <label for="verificationCode">Verification Code</label>
-                <input type="text" id="verificationCode" name="code" class="input verification-code-input" 
-                       required maxlength="6" pattern="[0-9]{6}" placeholder="000000" 
-                       inputmode="numeric" autocomplete="one-time-code"
-                       style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: bold;">
-                <span class="helper-text">Enter the 6-digit code from your email</span>
-            </div>
+				<div class="form-footer">
+					Already have an account?
+					<a class="link" data-action="show-login">Sign in</a>
+				</div>
+			</form>
 
-            <button type="submit" id="verifyCodeBtn" class="btn btn-primary">
-                Verify Code
-            </button>
+			<!-- Forgot Password Form -->
+			<form id="forgotPasswordForm" class="mt-6 space-y-4 hidden">
+				<div class="form-group">
+					<label for="forgotEmail">Email Address</label>
+					<input type="email" id="forgotEmail" name="email" class="input" required autocomplete="email" placeholder="you@example.com" />
+					<span class="helper-text">We'll send you a link to reset your password</span>
+				</div>
 
-            <div class="form-footer" style="text-align: center;">
-                Didn't receive the code? 
-                <button type="button" id="resendCodeBtn" class="link" style="background: none; border: none; cursor: pointer; color: var(--primary); text-decoration: underline;">
-                    Resend Code
-                </button>
-            </div>
+				<button type="submit" id="forgotPasswordBtn" class="btn btn-primary">Send Reset Link</button>
 
-            <div class="form-footer">
-                <a class="link" data-action="show-register">← Start over</a>
-            </div>
-        </form>
+				<div class="form-footer">
+					Remember your password?
+					<a class="link" data-action="show-login">Sign in</a>
+				</div>
+			</form>
 
-        <!-- Forgot Password Form -->
-        <form id="forgotPasswordForm" class="mt-6 space-y-4 hidden">
-            <div class="form-group">
-                <label for="forgotEmail">Email Address</label>
-                <input type="email" id="forgotEmail" name="email" class="input" 
-                       required autocomplete="email" placeholder="you@example.com">
-                <span class="helper-text">We'll send you a link to reset your password</span>
-            </div>
+			<!-- Email Verification Page -->
+			<div id="verifyEmailPage" class="mt-6 space-y-4 hidden">
+				<div class="verification-icon">✉️</div>
+				<p id="verifyEmailMessage" class="text-center">Verifying your email...</p>
+				<button id="verifyEmailBackBtn" class="btn btn-secondary">Back to Sign In</button>
+			</div>
 
-            <button type="submit" id="forgotPasswordBtn" class="btn btn-primary">
-                Send Reset Link
-            </button>
+			<!-- Reset Password Form -->
+			<form id="resetPasswordForm" class="mt-6 space-y-4 hidden">
+				<div class="form-group">
+					<label for="newPassword">New Password</label>
+					<input type="password" id="newPassword" name="newPassword" class="input" required autocomplete="new-password" minlength="8" placeholder="••••••••" />
+					<div id="resetPasswordStrength" class="password-strength hidden">
+						<div class="password-strength-bar">
+							<div id="resetStrengthFill" class="password-strength-fill"></div>
+						</div>
+						<span id="resetStrengthLabel" class="strength-label"></span>
+					</div>
+				</div>
 
-            <div class="form-footer">
-                Remember your password? 
-                <a class="link" data-action="show-login">Sign in</a>
-            </div>
-        </form>
+				<div class="form-group">
+					<label for="confirmNewPassword">Confirm New Password</label>
+					<input type="password" id="confirmNewPassword" name="confirmNewPassword" class="input" required autocomplete="new-password" placeholder="••••••••" />
+				</div>
 
-        <!-- Email Verification Page -->
-        <div id="verifyEmailPage" class="mt-6 space-y-4 hidden">
-            <div class="verification-icon">✉️</div>
-            <p id="verifyEmailMessage" class="text-center">Verifying your email...</p>
-            <button id="verifyEmailBackBtn" class="btn btn-secondary">
-                Back to Sign In
-            </button>
-        </div>
+				<button type="submit" id="resetPasswordBtn" class="btn btn-primary">Reset Password</button>
 
-        <!-- Reset Password Form -->
-        <form id="resetPasswordForm" class="mt-6 space-y-4 hidden">
-            <div class="form-group">
-                <label for="newPassword">New Password</label>
-                <input type="password" id="newPassword" name="newPassword" class="input" 
-                       required autocomplete="new-password" minlength="8" placeholder="••••••••">
-                <div id="resetPasswordStrength" class="password-strength hidden">
-                    <div class="password-strength-bar">
-                        <div id="resetStrengthFill" class="password-strength-fill"></div>
-                    </div>
-                    <span id="resetStrengthLabel" class="strength-label"></span>
-                </div>
-            </div>
+				<div class="form-footer">
+					Remember your password?
+					<a class="link" data-action="show-login">Sign in</a>
+				</div>
+			</form>
+		</div>
 
-            <div class="form-group">
-                <label for="confirmNewPassword">Confirm New Password</label>
-                <input type="password" id="confirmNewPassword" name="confirmNewPassword" class="input" 
-                       required autocomplete="new-password" placeholder="••••••••">
-            </div>
-
-            <button type="submit" id="resetPasswordBtn" class="btn btn-primary">
-                Reset Password
-            </button>
-
-            <div class="form-footer">
-                Remember your password? 
-                <a class="link" data-action="show-login">Sign in</a>
-            </div>
-        </form>
-    </div>
-
-    <script src="js/login.js"></script>
-</body>
+		<script src="js/login.js"></script>
+	</body>
 </html>
