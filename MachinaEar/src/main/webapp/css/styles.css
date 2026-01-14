@@ -313,3 +313,20 @@ body {
 .text-sm { font-size: 0.875rem; }
 .text-xs { font-size: 0.75rem; }
 .font-mono { font-family: ui-monospace, monospace; }
+/* ALTCHA Widget Styling */
+.altcha-container {
+    margin: 1rem 0;
+}
+
+altcha-widget {
+    --altcha-max-width: 100%;
+    --altcha-color-base: var(--color-gray-700);
+    --altcha-color-border: var(--color-gray-300);
+    --altcha-color-border-focus: var(--color-primary);
+    --altcha-color-footer-bg: var(--color-gray-50);
+    --altcha-border-radius: var(--border-radius);
+}
+
+altcha-widget::part(checkbox) {
+    border-radius: var(--border-radius);
+}

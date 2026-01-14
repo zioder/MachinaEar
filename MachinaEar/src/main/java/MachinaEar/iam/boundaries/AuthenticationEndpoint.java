@@ -28,6 +28,7 @@ import MachinaEar.iam.controllers.repositories.IdentityRepository;
 import MachinaEar.iam.controllers.repositories.PendingRegistrationRepository;
 import MachinaEar.iam.entities.Identity;
 import MachinaEar.iam.entities.PendingRegistration;
+import MachinaEar.iam.security.AltchaManager;
 import MachinaEar.iam.security.Secured;
 import MachinaEar.iam.security.JwtManager;
 import MachinaEar.iam.security.Argon2Utility;
@@ -44,6 +45,7 @@ public class AuthenticationEndpoint {
     @Inject PendingRegistrationRepository pendingRegistrations;
     @Inject EmailService emailService;
     @Inject JwtManager jwt;
+    @Inject AltchaManager altchaManager;
 
     @GET @Path("/test")
     @PermitAll
@@ -56,6 +58,8 @@ public class AuthenticationEndpoint {
         public String password; // transmis via TLS
         public Integer totpCode; // 6-digit TOTP code (optional)
         public String recoveryCode; // Recovery code for 2FA (optional)
+        public String altcha; // ALTCHA proof-of-work response (required)
+        
         public LoginRequest() {}
     }
 
@@ -63,6 +67,8 @@ public class AuthenticationEndpoint {
         public String email;
         public String username;
         public String password; // transmis via TLS
+        public String altcha; // ALTCHA proof-of-work response (required)
+        
         public RegisterRequest() {}
     }
 
@@ -92,7 +98,13 @@ public class AuthenticationEndpoint {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("email/username/password required")).build();
         }
-
+        
+        // Verify ALTCHA proof-of-work
+        if (req.altcha == null || !altchaManager.verify(req.altcha)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Security verification failed. Please complete the challenge.")).build();
+        }
+        
         String email = req.email.trim().toLowerCase();
         String username = req.username.trim();
         char[] password = req.password.toCharArray();
@@ -195,6 +207,13 @@ public class AuthenticationEndpoint {
         if (req == null || req.email == null || req.password == null) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("email/password required")).build();
+        }
+
+        // Verify ALTCHA proof-of-work (skip for 2FA retry - when totpCode or recoveryCode is provided)
+        boolean is2FARetry = req.totpCode != null || (req.recoveryCode != null && !req.recoveryCode.isBlank());
+        if (!is2FARetry && (req.altcha == null || !altchaManager.verify(req.altcha))) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Security verification failed. Please complete the challenge.")).build();
         }
 
         try {

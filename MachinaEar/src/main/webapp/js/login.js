@@ -9,6 +9,7 @@
     // Configuration
     const contextPath = window.location.pathname.replace(/\/[^/]*$/, '');
     const API_URL = window.location.origin + contextPath + '/iam';
+    const ALTCHA_CHALLENGE_URL = API_URL + '/altcha/challenge';
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
     // App URLs for OAuth flow
@@ -90,6 +91,8 @@
     // State
     let requires2FA = false;
     let currentForm = 'login';
+    let loginAltchaValue = null;
+    let registerAltchaValue = null;
     let pendingVerificationEmail = null; // Email awaiting code verification
 
     // DOM Elements Cache
@@ -143,7 +146,10 @@
         verifyCodeEmail: null,
         // Titles
         formTitle: null,
-        formSubtitle: null
+        formSubtitle: null,
+        // ALTCHA elements
+        loginAltcha: null,
+        registerAltcha: null
     };
 
     /**
@@ -152,6 +158,7 @@
     function init() {
         cacheElements();
         bindEvents();
+        initAltchaWidgets();
         checkInitialMode();
     }
 
@@ -230,6 +237,47 @@
         elements.verifyCodeEmail = document.getElementById('verifyCodeEmail');
         elements.formTitle = document.getElementById('formTitle');
         elements.formSubtitle = document.getElementById('formSubtitle');
+        elements.loginAltcha = document.getElementById('loginAltcha');
+        elements.registerAltcha = document.getElementById('registerAltcha');
+    }
+
+    /**
+     * Initialize ALTCHA widgets
+     */
+    function initAltchaWidgets() {
+        // Set the challenge URL for both widgets
+        if (elements.loginAltcha) {
+            elements.loginAltcha.setAttribute('challengeurl', ALTCHA_CHALLENGE_URL);
+            elements.loginAltcha.addEventListener('statechange', (e) => {
+                if (e.detail && e.detail.state === 'verified') {
+                    loginAltchaValue = e.detail.payload;
+                }
+            });
+        }
+        
+        if (elements.registerAltcha) {
+            elements.registerAltcha.setAttribute('challengeurl', ALTCHA_CHALLENGE_URL);
+            elements.registerAltcha.addEventListener('statechange', (e) => {
+                if (e.detail && e.detail.state === 'verified') {
+                    registerAltchaValue = e.detail.payload;
+                }
+            });
+        }
+    }
+
+    /**
+     * Reset ALTCHA widget (called after failed attempt or form switch)
+     */
+    function resetAltcha(widgetElement) {
+        if (widgetElement && typeof widgetElement.reset === 'function') {
+            widgetElement.reset();
+        }
+        // Clear stored values
+        if (widgetElement === elements.loginAltcha) {
+            loginAltchaValue = null;
+        } else if (widgetElement === elements.registerAltcha) {
+            registerAltchaValue = null;
+        }
     }
 
     /**
@@ -307,6 +355,13 @@
         if (elements.formSubtitle) elements.formSubtitle.textContent = 'Enter your credentials to continue';
         hideAlerts();
         currentForm = 'login';
+        // Reset ALTCHA widgets when switching forms
+        resetAltcha(elements.loginAltcha);
+        resetAltcha(elements.registerAltcha);
+        // Reset login form fields
+        if (elements.loginEmail) elements.loginEmail.disabled = false;
+        if (elements.loginPassword) elements.loginPassword.disabled = false;
+        requires2FA = false;
         // Clear URL parameters
         window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -318,6 +373,9 @@
         if (elements.formSubtitle) elements.formSubtitle.textContent = 'Fill in your details to get started';
         hideAlerts();
         currentForm = 'register';
+        // Reset ALTCHA widgets when switching forms
+        resetAltcha(elements.loginAltcha);
+        resetAltcha(elements.registerAltcha);
     }
 
     function showForgotPasswordForm() {
@@ -466,10 +524,18 @@
         const totpCode = elements.totpCode?.value;
         const recoveryCode = elements.recoveryCode?.value;
 
+        // Check ALTCHA verification (not required for 2FA retry)
+        const is2FARetry = totpCode || (recoveryCode && recoveryCode.trim());
+        if (!is2FARetry && !loginAltchaValue) {
+            showError('Please complete the security verification');
+            return;
+        }
+
         // Build request body
         const body = { email, password };
         if (totpCode) body.totpCode = parseInt(totpCode);
         if (recoveryCode) body.recoveryCode = recoveryCode;
+        if (!is2FARetry && loginAltchaValue) body.altcha = loginAltchaValue;
 
         setButtonLoading(elements.loginBtn, true, 'Signing in...');
 
@@ -516,9 +582,6 @@
                     window.location.href = returnTo;
                 } else {
                     // No returnTo or not an OAuth flow - redirect to app with auto_login flag
-                    // The client app will detect this and initiate OAuth flow
-                    // (We can't initiate OAuth from here because PKCE params would be stored
-                    // in IAM's sessionStorage, not the client app's sessionStorage)
                     window.location.href = APP_ROOT_URL + '?auto_login=true';
                 }
             }, 500);
@@ -526,6 +589,8 @@
         } catch (err) {
             showError(err.message || 'Login failed');
             setButtonLoading(elements.loginBtn, false, 'Sign In');
+            // Reset ALTCHA widget on failure
+            resetAltcha(elements.loginAltcha);
         }
     }
 
@@ -551,6 +616,12 @@
             return;
         }
 
+        // Check ALTCHA verification
+        if (!registerAltchaValue) {
+            showError('Please complete the security verification');
+            return;
+        }
+
         setButtonLoading(elements.registerBtn, true, 'Sending verification code...');
 
         try {
@@ -558,7 +629,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ email, username, password })
+                body: JSON.stringify({ email, username, password, altcha: registerAltchaValue })
             });
 
             const result = await response.json();
@@ -586,6 +657,8 @@
         } catch (err) {
             showError(err.message || 'Registration failed');
             setButtonLoading(elements.registerBtn, false, 'Create Account');
+            // Reset ALTCHA widget on failure
+            resetAltcha(elements.registerAltcha);
         }
     }
 
@@ -821,9 +894,7 @@
             if (elements.newPassword) elements.newPassword.value = '';
             if (elements.confirmNewPassword) elements.confirmNewPassword.value = '';
 
-            // Show login form and provide instructions
-            // Don't set returnTo here as it gets cleared - user should use the "Sign In" button on the main app
-            // to initiate proper OAuth flow
+            // Show login form
             setTimeout(() => {
                 showLoginForm();
                 showInfo('Your password has been reset. Sign in below, or go to the app to sign in with OAuth.');
